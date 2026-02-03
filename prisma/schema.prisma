@@ -1,0 +1,215 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  USER
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String
+  name          String?
+  role      UserRole @default(USER)
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@map("users")
+}
+
+model Product {
+  id            String    @id @default(cuid())
+  name          String
+  sku           String    @unique
+  description   String?
+  category      String?
+  reorderLevel  Int       @default(10)
+  sellingPrice  Decimal?  @db.Decimal(10, 2)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  batches       InventoryBatch[]
+
+  @@map("products")
+}
+
+model InventoryBatch {
+  id            String    @id @default(cuid())
+  productId     String
+  batchNumber   String
+  quantity      Int       @default(0)
+  expiryDate    DateTime?
+  isExpired     Boolean   @default(false)
+  location      String?
+  costPrice     Decimal?  @db.Decimal(10, 2)
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  product       Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  orderItems    OrderItem[]
+
+  @@unique([productId, batchNumber])
+  @@map("inventory_batches")
+}
+
+
+
+model Order {
+  id              String      @id @default(cuid())
+  orderNumber     String      @unique
+  channel         String      @default("shopee")
+  status          OrderStatus @default(PENDING)
+  customerName    String?
+  customerEmail   String?
+  customerPhone   String?
+  shippingAddress String?
+  totalAmount     Decimal     @db.Decimal(10, 2)
+  currency        String      @default("PHP")
+  externalOrderId String?     @unique
+  orderDate       DateTime    @default(now())
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  items           OrderItem[]
+  shipment        Shipment?
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id              String    @id @default(cuid())
+  orderId         String
+  inventoryBatchId String?
+  productName     String
+  sku             String
+  quantity        Int
+  unitPrice       Decimal   @db.Decimal(10, 2)
+  totalPrice      Decimal   @db.Decimal(10, 2)
+  createdAt       DateTime  @default(now())
+
+  order           Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  inventoryBatch  InventoryBatch? @relation(fields: [inventoryBatchId], references: [id], onDelete: SetNull)
+
+  @@map("order_items")
+}
+
+model Shipment {
+  id              String          @id @default(cuid())
+  orderId         String          @unique
+  trackingNumber  String          @unique
+  carrier         String          @default("TracxLogis")
+  status          ShipmentStatus  @default(PENDING)
+  statusMessage   String?
+  estimatedDelivery DateTime?
+  actualDelivery   DateTime?
+  shippedAt       DateTime?
+  pickedUpAt      DateTime?
+  deliveredAt     DateTime?
+  externalShipmentId String?      @unique
+  lastTrackingUpdate DateTime?
+  trackingHistory Json?
+  recipientName   String?
+  recipientAddress String?
+  weight          Decimal?        @db.Decimal(10, 2)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  order           Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("shipments")
+}
+
+model AnalyticsSnapshot {
+  id              String    @id @default(cuid())
+  date            DateTime  @unique @db.Date
+  totalProducts   Int       @default(0)
+  totalOrders     Int       @default(0)
+  activeShipments Int       @default(0)
+  revenue         Decimal   @default(0) @db.Decimal(12, 2)
+  lowStockCount   Int       @default(0)
+  expiringSoonCount Int     @default(0)
+  volumeSpikes    Int       @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@map("analytics_snapshots")
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+enum ShipmentStatus {
+  PENDING
+  PICKED_UP
+  IN_TRANSIT
+  OUT_FOR_DELIVERY
+  DELIVERED
+  FAILED
+  RETURNED
+}
+
+model ShopeeConfig {
+  id              String    @id @default(cuid())
+  shopId          String    @unique
+  shopName        String?
+  partnerId       String
+  partnerKey      String
+  accessToken     String?
+  refreshToken    String?
+  tokenExpiresAt  DateTime?
+  isActive        Boolean   @default(true)
+  lastSyncAt      DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  syncLogs        SyncLog[]
+
+  @@map("shopee_configs")
+}
+
+model SyncLog {
+  id              String    @id @default(cuid())
+  shopeeConfigId  String
+  syncType        String    // 'orders', 'products', etc.
+  status          String    // 'started', 'completed', 'failed'
+  ordersImported  Int       @default(0)
+  ordersSkipped   Int       @default(0)
+  errorMessage    String?
+  startedAt       DateTime  @default(now())
+  completedAt     DateTime?
+  
+  shopeeConfig    ShopeeConfig @relation(fields: [shopeeConfigId], references: [id], onDelete: Cascade)
+
+  @@map("sync_logs")
+}
+
+model TracxLogisConfig {
+  id              String    @id @default(cuid())
+  name            String    @default("Default")
+  apiKey          String
+  apiEndpoint     String    @default("https://api.tracxlogis.com")
+  isActive        Boolean   @default(true)
+  lastSyncAt      DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@map("tracxlogis_configs")
+}

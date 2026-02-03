@@ -1,0 +1,1287 @@
+================================================================================
+                    LOGITRACK - INTERNAL DEVELOPER DOCUMENTATION
+                           Last Updated: February 2026
+================================================================================
+
+================================================================================
+                            TABLE OF CONTENTS
+================================================================================
+
+1.  Introduction & System Overview
+2.  Repository Structure & Folder Breakdown
+3.  Technology Stack
+4.  Database Schema & Models
+5.  API Architecture & Endpoints
+6.  State Management & Data Flow
+7.  Core Business Logic & Domains
+8.  Authentication & Authorization
+9.  External Integrations
+10. Development Setup & Local Environment
+11. Debugging, Logging & Error Handling
+12. Code Conventions & Patterns
+13. Onboarding Checklist (Junior Dev)
+
+================================================================================
+                    1. INTRODUCTION & SYSTEM OVERVIEW
+================================================================================
+
+WHAT IS LOGITRACK?
+------------------
+LogiTrack is a logistics and inventory management platform designed for 
+e-commerce sellers. It helps track:
+
+- Products and inventory batches (with expiry tracking)
+- Orders from multiple sales channels (Shopee, manual entry)
+- Shipments via TracxLogis carrier integration
+- Reorder alerts and stock level monitoring
+
+WHY DOES IT EXIST?
+------------------
+E-commerce sellers often struggle to manage:
+1. Inventory across multiple batches with different expiry dates
+2. Orders coming from different sales channels
+3. Shipment tracking from various carriers
+4. Low stock alerts and reorder timing
+
+LogiTrack consolidates all these concerns into one dashboard.
+
+HOW IT WORKS (HIGH LEVEL):
+--------------------------
+1. Sellers connect their Shopee shop via OAuth
+2. Orders sync automatically from Shopee (or can be created manually)
+3. Inventory is managed in "batches" (each batch can have its own expiry date)
+4. When orders are fulfilled, shipments are created and tracked via TracxLogis
+5. Dashboard shows alerts for low stock, expiring items, and shipment status
+
+================================================================================
+                    2. REPOSITORY STRUCTURE & FOLDER BREAKDOWN
+================================================================================
+
+PROJECT ROOT: /home/ubuntu/logitrack/nextjs_space
+
+```
+.
+├── app/                    # Next.js App Router (pages & API routes)
+│   ├── api/                # Backend API endpoints
+│   │   ├── auth/           # Authentication routes (NextAuth)
+│   │   ├── cron/           # Scheduled task endpoints
+│   │   ├── inventory/      # Inventory batch CRUD
+│   │   ├── orders/         # Order CRUD + status management
+│   │   ├── products/       # Product catalog CRUD
+│   │   ├── shipments/      # Shipment tracking
+│   │   ├── shopee/         # Shopee OAuth & sync
+│   │   └── signup/         # User registration
+│   ├── dashboard/          # Protected dashboard pages
+│   │   ├── data-sync/      # Shopee connection management
+│   │   ├── expiry-tracking/# Batch expiry monitoring
+│   │   ├── forecasting/    # (Placeholder) Demand forecasting
+│   │   ├── inventory/      # Inventory management UI
+│   │   ├── monthly-volume/ # (Placeholder) Volume analytics
+│   │   ├── orders/         # Order management UI
+│   │   ├── reorder-alerts/ # Low stock alerts
+│   │   ├── shipments/      # Shipment tracking UI
+│   │   └── spike-detection/# (Placeholder) Demand spikes
+│   ├── login/              # Login page
+│   ├── signup/             # Registration page
+│   ├── globals.css         # Global styles
+│   ├── layout.tsx          # Root layout
+│   └── page.tsx            # Landing page (redirects to login)
+├── components/             # Reusable React components
+│   ├── ui/                 # shadcn/ui component library
+│   ├── dashboard-header.tsx
+│   ├── providers.tsx       # Session provider wrapper
+│   ├── sidebar.tsx         # Navigation sidebar
+│   └── theme-provider.tsx
+├── hooks/                  # Custom React hooks
+│   └── use-toast.ts        # Toast notification hook
+├── lib/                    # Core utilities & business logic
+│   ├── auth.ts             # NextAuth configuration
+│   ├── db.ts               # Prisma client singleton
+│   ├── shopee-client.ts    # Shopee API wrapper
+│   ├── shopee-sync.ts      # Order sync logic
+│   ├── tracx-client.ts     # TracxLogis API wrapper
+│   ├── types.ts            # TypeScript type definitions
+│   └── utils.ts            # Utility functions (cn, etc.)
+├── prisma/                 # Database configuration
+│   └── schema.prisma       # Database schema definition
+├── public/                 # Static assets
+│   ├── logo.png            # LogiTrack logo
+│   ├── favicon.svg         # Browser favicon
+│   └── og-image.png        # Social sharing image
+├── scripts/                # Utility scripts
+│   └── seed.ts             # Database seeding script
+├── .env                    # Environment variables (DO NOT COMMIT)
+├── next.config.js          # Next.js configuration
+├── package.json            # Dependencies & scripts
+├── tailwind.config.ts      # Tailwind CSS configuration
+└── tsconfig.json           # TypeScript configuration
+```
+
+KEY FOLDER EXPLANATIONS:
+------------------------
+
+/app/api/ - Backend Logic
+    All REST API endpoints live here. Each folder is a route.
+    Example: /app/api/orders/route.ts handles GET/POST to /api/orders
+
+/app/dashboard/ - Protected Pages
+    All pages under this folder require authentication.
+    The layout.tsx checks for session and redirects if not logged in.
+
+/lib/ - Business Logic & Utilities
+    This is where the "meat" of the application lives:
+    - API clients (Shopee, TracxLogis)
+    - Authentication configuration
+    - Type definitions
+    - Database client
+
+/prisma/ - Database Schema
+    Contains the Prisma schema that defines all database tables.
+    Run "yarn prisma generate" after changing this file.
+
+/components/ui/ - UI Component Library
+    Pre-built components from shadcn/ui. These are copied into the
+    project (not installed as npm packages) so they can be customized.
+
+================================================================================
+                         3. TECHNOLOGY STACK
+================================================================================
+
+FRONTEND:
+---------
+- Next.js 14 (App Router) - React framework with server-side rendering
+- React 18 - UI library
+- TypeScript - Type safety
+- Tailwind CSS - Utility-first CSS framework
+- shadcn/ui - Component library (Radix UI + Tailwind)
+- Lucide React - Icon library
+
+BACKEND:
+--------
+- Next.js API Routes - Serverless API endpoints
+- NextAuth.js - Authentication (credentials provider)
+- Prisma ORM - Database access layer
+- bcryptjs - Password hashing
+
+DATABASE:
+---------
+- PostgreSQL - Primary database (hosted)
+- Prisma - ORM for type-safe database queries
+
+EXTERNAL SERVICES:
+------------------
+- Shopee Open Platform - E-commerce integration (OAuth + API)
+- TracxLogis - Shipment tracking API
+
+================================================================================
+                    4. DATABASE SCHEMA & MODELS
+================================================================================
+
+The database has 10 main tables:
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              USER MANAGEMENT                                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ users                                                                        │
+│   - id (cuid)                                                               │
+│   - email (unique)                                                          │
+│   - password (bcrypt hashed)                                                │
+│   - name                                                                    │
+│   - createdAt, updatedAt                                                    │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              INVENTORY                                       │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ products                                                                     │
+│   - id, name, sku (unique)                                                  │
+│   - description, category                                                   │
+│   - reorderLevel (triggers low stock alert)                                 │
+│   - sellingPrice                                                            │
+│   - isActive                                                                │
+│                                                                             │
+│ inventory_batches                                                            │
+│   - id, productId (FK -> products)                                          │
+│   - batchNumber (unique per product)                                        │
+│   - quantity                                                                │
+│   - expiryDate (optional)                                                   │
+│   - isExpired (flag for expired batches)                                    │
+│   - location, costPrice, notes                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              ORDERS                                          │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ orders                                                                       │
+│   - id, orderNumber (unique, auto-generated)                                │
+│   - channel: 'shopee' | 'manual'                                            │
+│   - status: PENDING → CONFIRMED → PROCESSING → SHIPPED → DELIVERED          │
+│   - customerName, customerEmail, customerPhone, shippingAddress             │
+│   - totalAmount, currency                                                   │
+│   - externalOrderId (Shopee order ID if synced)                             │
+│   - orderDate                                                               │
+│                                                                             │
+│ order_items                                                                  │
+│   - id, orderId (FK -> orders)                                              │
+│   - inventoryBatchId (FK -> inventory_batches, optional)                    │
+│   - productName, sku                                                        │
+│   - quantity, unitPrice, totalPrice                                         │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              SHIPMENTS                                       │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ shipments                                                                    │
+│   - id, orderId (FK -> orders, unique 1:1)                                  │
+│   - trackingNumber (unique)                                                 │
+│   - carrier (default: 'TracxLogis')                                         │
+│   - status: PENDING → PICKED_UP → IN_TRANSIT → OUT_FOR_DELIVERY → DELIVERED │
+│   - statusMessage                                                           │
+│   - estimatedDelivery, actualDelivery                                       │
+│   - shippedAt, pickedUpAt, deliveredAt                                      │
+│   - trackingHistory (JSON array of events)                                  │
+│   - recipientName, recipientAddress, weight                                 │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              INTEGRATIONS                                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ shopee_configs                                                               │
+│   - id, shopId (unique)                                                     │
+│   - shopName                                                                │
+│   - partnerId, partnerKey                                                   │
+│   - accessToken, refreshToken (OAuth tokens)                                │
+│   - tokenExpiresAt                                                          │
+│   - isActive, lastSyncAt                                                    │
+│                                                                             │
+│ sync_logs                                                                    │
+│   - id, shopeeConfigId (FK -> shopee_configs)                               │
+│   - syncType: 'orders' | 'products'                                         │
+│   - status: 'started' | 'completed' | 'failed'                              │
+│   - ordersImported, ordersSkipped                                           │
+│   - errorMessage                                                            │
+│                                                                             │
+│ tracxlogis_configs                                                           │
+│   - id, name                                                                │
+│   - apiKey, apiEndpoint                                                     │
+│   - isActive, lastSyncAt                                                    │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              ANALYTICS                                       │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ analytics_snapshots                                                          │
+│   - id, date (unique)                                                       │
+│   - totalProducts, totalOrders, activeShipments                             │
+│   - revenue, lowStockCount, expiringSoonCount, volumeSpikes                 │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+KEY RELATIONSHIPS:
+------------------
+- Product 1:N InventoryBatch (one product can have multiple batches)
+- Order 1:N OrderItem (one order can have multiple items)
+- Order 1:1 Shipment (one order has one shipment)
+- OrderItem N:1 InventoryBatch (items can optionally link to a batch)
+- ShopeeConfig 1:N SyncLog (one shop can have multiple sync logs)
+
+================================================================================
+                    5. API ARCHITECTURE & ENDPOINTS
+================================================================================
+
+BASE URL:
+---------
+- Development: http://localhost:3000/api
+- Production: https://logitrack-newd70.abacusai.app/api
+
+AUTHENTICATION:
+---------------
+All API routes (except /api/auth/* and /api/signup) require authentication.
+Authentication is handled via NextAuth.js session cookies.
+
+REQUEST LIFECYCLE:
+------------------
+1. Client sends request with session cookie
+2. API route calls getServerSession(authOptions)
+3. If no session, return 401 Unauthorized
+4. If session valid, proceed with business logic
+5. Query/mutate database via Prisma
+6. Return JSON response
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              AUTHENTICATION                                  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│ POST /api/auth/[...nextauth]                                                │
+│      NextAuth.js handler (login, logout, session management)                │
+│                                                                             │
+│ POST /api/signup                                                            │
+│      Body: { email, password, name }                                        │
+│      Response: { success: true, data: { id, email, name } }                 │
+│      Creates new user with hashed password                                  │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              PRODUCTS                                        │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│ GET /api/products                                                           │
+│     Query: ?page=1&limit=20&search=keyword                                  │
+│     Response: { success, data: [...products], pagination }                  │
+│     Lists products with aggregated stock from batches                       │
+│                                                                             │
+│ POST /api/products                                                          │
+│      Body: { name, sku, description?, category?, reorderLevel?, price? }    │
+│      Response: { success, data: product }                                   │
+│      Creates new product (SKU must be unique)                               │
+│                                                                             │
+│ GET /api/products/[id]                                                      │
+│     Response: { success, data: product with batches }                       │
+│                                                                             │
+│ PUT /api/products/[id]                                                      │
+│     Body: { name?, sku?, ... }                                              │
+│     Updates product                                                         │
+│                                                                             │
+│ DELETE /api/products/[id]                                                   │
+│        Deletes product and all related batches                              │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              INVENTORY BATCHES                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│ GET /api/inventory                                                          │
+│     Query: ?productId=xxx&expired=true                                      │
+│     Lists inventory batches                                                 │
+│                                                                             │
+│ POST /api/inventory                                                         │
+│      Body: { productId, batchNumber, quantity, expiryDate?, location? }     │
+│      Creates new batch (batchNumber unique per product)                     │
+│                                                                             │
+│ GET /api/inventory/[id]                                                     │
+│ PUT /api/inventory/[id]                                                     │
+│ DELETE /api/inventory/[id]                                                  │
+│                                                                             │
+│ GET /api/inventory/low-stock                                                │
+│     Returns products where totalStock < reorderLevel                        │
+│                                                                             │
+│ GET /api/inventory/expired                                                  │
+│     Returns batches that are expired or expiring soon                       │
+│                                                                             │
+│ POST /api/cron/flag-expired                                                 │
+│      Cron job to auto-flag expired batches                                  │
+│      Should be called by a scheduler daily                                  │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              ORDERS                                          │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│ GET /api/orders                                                             │
+│     Query: ?page=1&limit=20&search=xxx&status=PENDING&channel=shopee        │
+│     Lists orders with items and shipment                                    │
+│                                                                             │
+│ POST /api/orders                                                            │
+│      Body: {                                                                │
+│        channel: 'shopee' | 'manual',                                        │
+│        customerName?, customerEmail?, customerPhone?, shippingAddress?,     │
+│        items: [{ productName, sku, quantity, unitPrice, inventoryBatchId? }]│
+│      }                                                                      │
+│      Creates order and deducts inventory if batch linked                    │
+│                                                                             │
+│ GET /api/orders/[id]                                                        │
+│ PUT /api/orders/[id]                                                        │
+│ DELETE /api/orders/[id]                                                     │
+│        Only PENDING/CANCELLED orders can be deleted                         │
+│        Restores inventory on delete                                         │
+│                                                                             │
+│ GET /api/orders/[id]/status                                                 │
+│     Returns current status and available transitions                        │
+│                                                                             │
+│ PUT /api/orders/[id]/status                                                 │
+│     Body: { status: 'CONFIRMED' }                                           │
+│     Updates status with lifecycle validation                                │
+│     Restores inventory on CANCELLED                                         │
+│                                                                             │
+│ POST /api/orders/[id]/items                                                 │
+│      Add item to PENDING order only                                         │
+│                                                                             │
+│ DELETE /api/orders/[id]/items                                               │
+│        Remove item from PENDING order only                                  │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              SHIPMENTS                                       │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│ GET /api/shipments                                                          │
+│     Query: ?search=tracking&status=IN_TRANSIT                               │
+│     Lists shipments with order details                                      │
+│                                                                             │
+│ POST /api/shipments                                                         │
+│      Body: { orderId, trackingNumber }                                      │
+│      Creates shipment linked to order                                       │
+│                                                                             │
+│ POST /api/shipments (action: sync-all)                                      │
+│      Body: { action: 'sync-all' }                                           │
+│      Syncs all active shipments with TracxLogis                             │
+│                                                                             │
+│ GET /api/shipments/[id]                                                     │
+│ PUT /api/shipments/[id]                                                     │
+│     Body: { status?, carrier?, action?: 'sync' }                            │
+│     action: 'sync' fetches latest tracking from TracxLogis                  │
+│                                                                             │
+│ DELETE /api/shipments/[id]                                                  │
+│        Only PENDING shipments can be deleted                                │
+│                                                                             │
+│ GET /api/shipments/config                                                   │
+│     Lists TracxLogis API configurations                                     │
+│                                                                             │
+│ POST /api/shipments/config                                                  │
+│      Body: { name, apiKey, apiEndpoint?, isActive? }                        │
+│                                                                             │
+│ DELETE /api/shipments/config?id=xxx                                         │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              SHOPEE INTEGRATION                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│ GET /api/shopee                                                             │
+│     Lists connected Shopee shop configurations                              │
+│                                                                             │
+│ POST /api/shopee                                                            │
+│      Body: { shopId, partnerId, partnerKey, shopName? }                     │
+│      Creates config and returns OAuth authorization URL                     │
+│                                                                             │
+│ POST /api/shopee/test                                                       │
+│      Body: { partnerId, partnerKey }                                        │
+│      Tests if credentials are valid before saving                           │
+│                                                                             │
+│ GET /api/shopee/callback                                                    │
+│     OAuth callback from Shopee                                              │
+│     Exchanges code for access/refresh tokens                                │
+│                                                                             │
+│ GET /api/shopee/[id]                                                        │
+│ POST /api/shopee/[id]                                                       │
+│      Regenerates authorization URL for reauthorization                      │
+│ DELETE /api/shopee/[id]                                                     │
+│                                                                             │
+│ POST /api/shopee/sync                                                       │
+│      Body: { configId }                                                     │
+│      Syncs orders from Shopee                                               │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+STANDARD RESPONSE FORMAT:
+-------------------------
+Success:
+{
+  "success": true,
+  "data": { ... },
+  "message": "Optional success message"
+}
+
+Paginated:
+{
+  "success": true,
+  "data": [...],
+  "pagination": {
+    "page": 1,
+    "limit": 20,
+    "total": 100,
+    "totalPages": 5
+  }
+}
+
+Error:
+{
+  "success": false,
+  "error": "Error message"
+}
+
+COMMON HTTP STATUS CODES:
+-------------------------
+200 - Success
+201 - Created
+400 - Bad Request (validation error)
+401 - Unauthorized (no session)
+404 - Not Found
+500 - Internal Server Error
+
+================================================================================
+                    6. STATE MANAGEMENT & DATA FLOW
+================================================================================
+
+ORDER STATUS LIFECYCLE:
+-----------------------
+Orders follow a strict state machine. Invalid transitions are rejected.
+
+    PENDING
+       │
+       ├──────────→ CANCELLED (terminal)
+       ↓
+   CONFIRMED
+       │
+       ├──────────→ CANCELLED
+       ↓
+   PROCESSING
+       │
+       ├──────────→ CANCELLED
+       ↓
+    SHIPPED
+       │
+       ├──────────→ CANCELLED
+       ↓
+   DELIVERED
+       │
+       ↓
+    REFUNDED (terminal)
+
+Valid Transitions:
+- PENDING → CONFIRMED, CANCELLED
+- CONFIRMED → PROCESSING, CANCELLED
+- PROCESSING → SHIPPED, CANCELLED
+- SHIPPED → DELIVERED, CANCELLED
+- DELIVERED → REFUNDED
+- CANCELLED → (none - terminal state)
+- REFUNDED → (none - terminal state)
+
+SPECIAL BEHAVIOR:
+- On CANCELLED: Inventory is automatically restored
+- On DELETE: Only PENDING/CANCELLED orders can be deleted; inventory restored
+
+SHIPMENT STATUS LIFECYCLE:
+--------------------------
+
+    PENDING
+       │
+       ↓
+   PICKED_UP
+       │
+       ↓
+   IN_TRANSIT
+       │
+       ↓
+ OUT_FOR_DELIVERY
+       │
+       ├──→ FAILED (can retry)
+       ↓
+   DELIVERED
+       │
+       ↓
+    RETURNED (if customer rejects/returns)
+
+TRACKING SYNC FLOW:
+-------------------
+1. User creates shipment with tracking number
+2. User clicks "Sync" or "Sync All"
+3. System calls TracxLogis API with tracking number
+4. TracxLogis returns tracking events
+5. System maps TracxLogis status to internal status
+6. Shipment and Order statuses are updated
+7. Tracking history is stored as JSON
+
+INVENTORY FLOW:
+---------------
+- Stock is tracked at BATCH level, not product level
+- Product's "total stock" = sum of all batch quantities
+- When order is created with batch links, stock is deducted
+- When order is cancelled/deleted, stock is restored
+- Expiry is tracked per batch
+
+DATA FLOW EXAMPLE - ORDER CREATION:
+-----------------------------------
+1. User submits order form (UI)
+2. POST /api/orders with items array
+3. Server validates:
+   - Channel is valid (shopee/manual)
+   - Items have required fields
+   - Quantities > 0
+4. Order created in database with auto-generated order number
+5. If inventoryBatchId provided:
+   - Batch quantity decremented by item quantity
+6. Response returned with created order
+7. UI updates order list
+
+================================================================================
+                    7. CORE BUSINESS LOGIC & DOMAINS
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              PRODUCTS DOMAIN                                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│ Responsibilities:                                                           │
+│ - Master catalog of all sellable items                                      │
+│ - SKU management (unique identifier)                                        │
+│ - Reorder level configuration                                               │
+│                                                                             │
+│ Key Rules:                                                                  │
+│ - SKU must be unique across all products                                    │
+│ - reorderLevel determines when low stock alert triggers                     │
+│ - Deleting a product cascades to delete all its batches                     │
+│                                                                             │
+│ ⚠️ Things that can break:                                                   │
+│ - Duplicate SKU will cause 400 error                                        │
+│ - Deleting product with active order items may cause issues                 │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              INVENTORY DOMAIN                                │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│ Responsibilities:                                                           │
+│ - Track stock quantities per batch                                          │
+│ - Track expiry dates                                                        │
+│ - Generate low stock and expiry alerts                                      │
+│                                                                             │
+│ Key Rules:                                                                  │
+│ - Each batch belongs to exactly one product                                 │
+│ - batchNumber is unique within a product                                    │
+│ - isExpired flag is set by cron job when expiryDate < today                 │
+│ - Quantity can go negative (overselling scenario)                           │
+│                                                                             │
+│ Alert Thresholds (lib/types.ts):                                            │
+│ - EXPIRED: 0 days (past expiry)                                             │
+│ - EXPIRING_SOON: 7 days                                                     │
+│ - EXPIRING_THIS_MONTH: 30 days                                              │
+│                                                                             │
+│ ⚠️ Things that can break:                                                   │
+│ - Forgetting to run flag-expired cron will leave isExpired false            │
+│ - Negative quantities allowed (should be handled in business logic)         │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              ORDERS DOMAIN                                   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│ Responsibilities:                                                           │
+│ - Track customer orders from all channels                                   │
+│ - Manage order lifecycle                                                    │
+│ - Link to inventory for stock deduction                                     │
+│ - Link to shipments for fulfillment                                         │
+│                                                                             │
+│ Key Rules:                                                                  │
+│ - orderNumber is auto-generated (ORD-{timestamp}-{random})                  │
+│ - channel must be 'shopee' or 'manual'                                      │
+│ - Status transitions are enforced (see Section 6)                           │
+│ - Cannot delete CONFIRMED+ orders (must cancel first)                       │
+│ - externalOrderId links to Shopee order (prevents duplicate sync)           │
+│                                                                             │
+│ ⚠️ Things that can break:                                                   │
+│ - Invalid status transition returns 400 error                               │
+│ - Deleting order with shipment will cascade delete shipment                 │
+│ - Inventory not restored if order deleted without proper status             │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              SHIPMENTS DOMAIN                                │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│ Responsibilities:                                                           │
+│ - Link orders to carrier tracking                                           │
+│ - Store tracking history                                                    │
+│ - Sync status from TracxLogis                                               │
+│                                                                             │
+│ Key Rules:                                                                  │
+│ - One shipment per order (1:1 relationship)                                 │
+│ - trackingNumber must be unique                                             │
+│ - trackingHistory is JSON array of events                                   │
+│ - Only PENDING shipments can be deleted                                     │
+│                                                                             │
+│ ⚠️ Things that can break:                                                   │
+│ - TracxLogis API failure will leave shipment status stale                   │
+│ - Duplicate tracking number causes 400 error                                │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              SHOPEE INTEGRATION                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│ Responsibilities:                                                           │
+│ - OAuth flow with Shopee Open Platform                                      │
+│ - Token management (access + refresh)                                       │
+│ - Order sync from Shopee                                                    │
+│                                                                             │
+│ Key Rules:                                                                  │
+│ - Access token expires in 4 hours                                           │
+│ - Refresh token must be used before expiry                                  │
+│ - Partner ID must be sent as INTEGER (not string)                           │
+│ - Test environment uses different API URL                                   │
+│ - Orders are READ-ONLY (imported, not modified)                             │
+│                                                                             │
+│ OAuth Flow:                                                                 │
+│ 1. User enters Partner ID, Partner Key, Shop ID                             │
+│ 2. System generates auth URL with HMAC signature                            │
+│ 3. User redirected to Shopee to authorize                                   │
+│ 4. Shopee redirects back with code                                          │
+│ 5. System exchanges code for tokens                                         │
+│ 6. Tokens stored in database                                                │
+│                                                                             │
+│ ⚠️ Things that can break:                                                   │
+│ - Wrong API URL (sandbox vs production)                                     │
+│ - Partner ID as string causes "invalid_partner_id" error                    │
+│ - Token expiry causes "error_auth" - need to reauthorize                    │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+================================================================================
+                    8. AUTHENTICATION & AUTHORIZATION
+================================================================================
+
+AUTHENTICATION MECHANISM:
+-------------------------
+LogiTrack uses NextAuth.js with the Credentials provider.
+
+How it works:
+1. User submits email/password on /login page
+2. NextAuth calls authorize() function in lib/auth.ts
+3. authorize() looks up user by email in database
+4. Password compared using bcrypt.compare()
+5. If valid, JWT token created and stored in HTTP-only cookie
+6. Session available via useSession() hook or getServerSession()
+
+KEY FILES:
+- lib/auth.ts - NextAuth configuration
+- app/api/auth/[...nextauth]/route.ts - Auth endpoints
+- app/api/signup/route.ts - User registration
+- components/providers.tsx - SessionProvider wrapper
+
+SESSION STRATEGY:
+-----------------
+Using JWT strategy (stateless):
+- Token stored in HTTP-only cookie
+- Contains user id, email, name
+- No database lookup needed for session validation
+- Token refreshed on each request
+
+PROTECTING PAGES:
+-----------------
+Dashboard pages are protected in app/dashboard/layout.tsx:
+
+```typescript
+const session = await getServerSession(authOptions);
+if (!session) {
+  redirect('/login');
+}
+```
+
+PROTECTING API ROUTES:
+----------------------
+All API routes check session:
+
+```typescript
+const session = await getServerSession(authOptions);
+if (!session) {
+  return NextResponse.json(
+    { success: false, error: 'Unauthorized' },
+    { status: 401 }
+  );
+}
+```
+
+ROLES & PERMISSIONS:
+--------------------
+Currently, LogiTrack has a SINGLE ROLE: authenticated user.
+All authenticated users have full access to all features.
+
+There is NO role-based access control (RBAC) implemented.
+All users can:
+- View and manage all products
+- View and manage all orders
+- View and manage all shipments
+- Connect Shopee shops
+- Configure TracxLogis
+
+Future Enhancement: Add role field to User model (admin, manager, viewer)
+
+TEST ACCOUNT:
+-------------
+Email: admin@logitrack.com
+Password: admin123
+
+================================================================================
+                    9. EXTERNAL INTEGRATIONS
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              SHOPEE OPEN PLATFORM                            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│ Purpose:                                                                    │
+│ Import orders from Shopee seller accounts                                   │
+│                                                                             │
+│ API Documentation:                                                          │
+│ https://open.shopee.com/documents/v2                                        │
+│                                                                             │
+│ Environment URLs:                                                           │
+│ - Sandbox: https://partner.test-stable.shopeemobile.com                     │
+│ - Production: https://partner.shopeemobile.com                              │
+│                                                                             │
+│ Authentication:                                                             │
+│ - OAuth 2.0 with HMAC-SHA256 signature                                      │
+│ - Partner ID + Partner Key issued by Shopee                                 │
+│ - Access token valid for 4 hours                                            │
+│ - Refresh token valid for 30 days                                           │
+│                                                                             │
+│ API Endpoints Used:                                                         │
+│ - /api/v2/shop/auth_partner - OAuth authorization                           │
+│ - /api/v2/auth/token/get - Exchange code for tokens                         │
+│ - /api/v2/auth/access_token/get - Refresh token                             │
+│ - /api/v2/order/get_order_list - List orders                                │
+│ - /api/v2/order/get_order_detail - Order details                            │
+│                                                                             │
+│ Code Location:                                                              │
+│ - lib/shopee-client.ts - API client                                         │
+│ - lib/shopee-sync.ts - Order sync logic                                     │
+│ - app/api/shopee/* - API routes                                             │
+│                                                                             │
+│ Environment Variables:                                                      │
+│ - SHOPEE_API_BASE (optional, defaults to sandbox)                           │
+│                                                                             │
+│ Common Pitfalls:                                                            │
+│ - Partner ID must be INTEGER in signature and API calls                     │
+│ - Signature uses: partner_id + path + timestamp (+ access_token + shop_id)  │
+│ - Test credentials only work with sandbox URL                               │
+│ - Redirect URL must match exactly what's configured in Shopee dashboard     │
+│                                                                             │
+│ Failure Handling:                                                           │
+│ - Credentials tested before saving config                                   │
+│ - Token refresh attempted automatically before API calls                    │
+│ - Sync errors logged to sync_logs table                                     │
+│ - OAuth errors shown as toast notifications                                 │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              TRACXLOGIS                                      │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│ Purpose:                                                                    │
+│ Track shipment status from carrier                                          │
+│                                                                             │
+│ API Documentation:                                                          │
+│ https://api.tracxlogis.com/GMKT.INC.GLPS.OpenApiService/Document            │
+│                                                                             │
+│ Authentication:                                                             │
+│ - Bearer token (API key)                                                    │
+│ - API key obtained from TracxLogis dashboard                                │
+│                                                                             │
+│ API Endpoints Used:                                                         │
+│ - /tracking/single - Get tracking for one shipment                          │
+│ - /tracking/batch - Get tracking for multiple shipments                     │
+│                                                                             │
+│ Code Location:                                                              │
+│ - lib/tracx-client.ts - API client + status mapping                         │
+│ - app/api/shipments/* - API routes                                          │
+│                                                                             │
+│ Status Mapping:                                                             │
+│ TracxLogis returns various status codes that are mapped to our internal     │
+│ ShipmentStatus enum. See mapTracxStatus() in lib/tracx-client.ts            │
+│                                                                             │
+│ Common Status Mappings:                                                     │
+│ - PICKED_UP, COLLECTED → PICKED_UP                                          │
+│ - IN_TRANSIT, PROCESSING → IN_TRANSIT                                       │
+│ - OUT_FOR_DELIVERY, WITH_COURIER → OUT_FOR_DELIVERY                         │
+│ - DELIVERED, COMPLETED → DELIVERED                                          │
+│ - FAILED, EXCEPTION → FAILED                                                │
+│ - RETURNED, RTS → RETURNED                                                  │
+│                                                                             │
+│ Failure Handling:                                                           │
+│ - API errors logged to console                                              │
+│ - Shipment status unchanged if sync fails                                   │
+│ - UI shows error toast on sync failure                                      │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+================================================================================
+                    10. DEVELOPMENT SETUP & LOCAL ENVIRONMENT
+================================================================================
+
+PREREQUISITES:
+--------------
+- Node.js 18+ (recommended: 20.x)
+- Yarn package manager
+- PostgreSQL (or use the hosted database)
+- Git
+
+STEP-BY-STEP SETUP:
+-------------------
+
+1. Clone or download the project:
+   ```bash
+   git clone <repository-url>
+   cd logitrack/nextjs_space
+   ```
+
+2. Install dependencies:
+   ```bash
+   yarn install
+   ```
+
+3. Generate Prisma client:
+   ```bash
+   yarn prisma generate
+   ```
+
+4. Set up environment variables:
+   Create a .env file with:
+   ```
+   DATABASE_URL="postgresql://user:pass@host:5432/dbname"
+   NEXTAUTH_SECRET="your-secret-key-here"
+   NEXTAUTH_URL="http://localhost:3000"
+   ```
+
+5. (Optional) Push schema to new database:
+   ```bash
+   yarn prisma db push
+   ```
+
+6. (Optional) Seed the database:
+   ```bash
+   yarn prisma db seed
+   ```
+
+7. Start the development server:
+   ```bash
+   yarn dev
+   ```
+
+8. Open http://localhost:3000 in your browser
+
+ENVIRONMENT VARIABLES EXPLAINED:
+--------------------------------
+
+Required:
+- DATABASE_URL: PostgreSQL connection string
+- NEXTAUTH_SECRET: Secret for JWT signing (generate with: openssl rand -base64 32)
+- NEXTAUTH_URL: Base URL of the application
+
+Optional:
+- SHOPEE_API_BASE: Shopee API URL (defaults to sandbox)
+
+USING THE HOSTED DATABASE:
+--------------------------
+If you have access to the production .env file, you can connect to the
+same database used in production. This allows you to:
+- Use the existing admin account
+- See real data
+- Test with actual Shopee connections
+
+⚠️ WARNING: Be careful when connected to production database!
+
+USEFUL COMMANDS:
+----------------
+```bash
+yarn dev          # Start development server
+yarn build        # Build for production
+yarn start        # Start production server
+yarn lint         # Run linter
+
+yarn prisma studio        # Open Prisma database GUI
+yarn prisma generate      # Regenerate Prisma client
+yarn prisma db push       # Push schema changes
+yarn prisma db seed       # Run seed script
+yarn prisma migrate dev   # Create migration (not used in this project)
+```
+
+================================================================================
+                    11. DEBUGGING, LOGGING & ERROR HANDLING
+================================================================================
+
+LOGGING STRATEGY:
+-----------------
+LogiTrack uses console.log/console.error for logging.
+Logs appear in:
+- Terminal (when running yarn dev)
+- Server logs (in production)
+
+Common log patterns:
+```typescript
+console.log('Processing order:', orderId);
+console.error('Error creating order:', error);
+console.log('Shopee sync completed:', { imported: 5, skipped: 2 });
+```
+
+DEBUGGING TIPS:
+---------------
+
+1. API Not Working?
+   - Check browser Network tab for request/response
+   - Look for 401 (not logged in) or 400 (validation error)
+   - Check terminal for server-side errors
+
+2. Database Issues?
+   - Run: yarn prisma studio
+   - This opens a GUI to browse database
+   - Check if records exist as expected
+
+3. Shopee Integration Issues?
+   - Check if using sandbox vs production URL
+   - Verify Partner ID is valid integer
+   - Check token expiration in shopee_configs table
+   - Look for "error_sign" or "error_auth" in responses
+
+4. TypeScript Errors?
+   - Run: yarn prisma generate (regenerates types)
+   - Check import paths are correct
+
+COMMON ERRORS & FIXES:
+----------------------
+
+Error: "@prisma/client did not initialize yet"
+Fix: Run `yarn prisma generate`
+
+Error: "Unauthorized" (401)
+Fix: Make sure you're logged in. Check session cookie exists.
+
+Error: "Cannot transition from X to Y"
+Fix: This is a valid business rule. Check ORDER_STATUS_TRANSITIONS.
+
+Error: "A configuration for this shop already exists"
+Fix: Shop ID is unique. Delete existing config first.
+
+Error: "Invalid partner_id" from Shopee
+Fix: Partner ID must be sent as integer, not string.
+
+Error: "error_sign" from Shopee
+Fix: Signature calculation is wrong. Check:
+  - Partner ID is integer in base string
+  - Timestamp is current Unix timestamp
+  - Using correct partner key
+
+ERROR HANDLING PATTERN:
+-----------------------
+API routes follow this pattern:
+
+```typescript
+try {
+  // Business logic
+  return NextResponse.json({ success: true, data: result });
+} catch (error) {
+  console.error('Error description:', error);
+  return NextResponse.json(
+    { success: false, error: 'User-friendly message' },
+    { status: 500 }
+  );
+}
+```
+
+================================================================================
+                    12. CODE CONVENTIONS & PATTERNS
+================================================================================
+
+ARCHITECTURAL PATTERNS:
+-----------------------
+
+1. Feature-based folder structure
+   - API routes grouped by domain (orders, products, etc.)
+   - Each domain has its own folder under /app/api
+
+2. Singleton database client
+   - Prisma client instantiated once in lib/db.ts
+   - Prevents connection pool exhaustion in development
+
+3. Type-safe API responses
+   - All responses follow ApiResponse<T> shape
+   - TypeScript types defined in lib/types.ts
+
+4. Server-side authentication
+   - getServerSession() called in every API route
+   - Dashboard layout checks session on server
+
+NAMING CONVENTIONS:
+-------------------
+
+Files:
+- React components: PascalCase.tsx (Sidebar.tsx)
+- Pages: lowercase/page.tsx (dashboard/orders/page.tsx)
+- API routes: lowercase/route.ts (api/orders/route.ts)
+- Utilities: kebab-case.ts (shopee-client.ts)
+
+Variables:
+- camelCase for variables and functions
+- PascalCase for types and interfaces
+- UPPER_SNAKE_CASE for constants
+
+Database:
+- snake_case for table names (via @@map)
+- camelCase for Prisma model fields
+
+CODE PATTERNS:
+--------------
+
+API Route Structure:
+```typescript
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { prisma } from '@/lib/db';
+
+export async function GET(request: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  }
+
+  try {
+    const data = await prisma.model.findMany();
+    return NextResponse.json({ success: true, data });
+  } catch (error) {
+    console.error('Error:', error);
+    return NextResponse.json({ success: false, error: 'Failed' }, { status: 500 });
+  }
+}
+```
+
+React Component Pattern:
+```typescript
+'use client';
+
+import { useState, useEffect } from 'react';
+import { toast } from 'sonner';
+
+export default function MyPage() {
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchData = async () => {
+    try {
+      const res = await fetch('/api/endpoint');
+      const json = await res.json();
+      if (json.success) {
+        setData(json.data);
+      } else {
+        toast.error(json.error);
+      }
+    } catch (error) {
+      toast.error('Failed to fetch data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchData(); }, []);
+
+  if (loading) return <div>Loading...</div>;
+  return <div>{/* render data */}</div>;
+}
+```
+
+DO NOT DO THIS:
+---------------
+❌ Don't import prisma directly in components (only in API routes)
+❌ Don't store sensitive data (tokens, keys) in client-side state
+❌ Don't skip session checks in API routes
+❌ Don't use string partner IDs in Shopee API calls
+❌ Don't delete orders without checking status first
+❌ Don't modify inventory without proper order status handling
+
+LEGACY/SENSITIVE AREAS:
+-----------------------
+⚠️ lib/shopee-client.ts - Signature generation is complex and fragile
+⚠️ Order status transitions - Business rules enforced here
+⚠️ Inventory deduction - Must match order item flow
+
+================================================================================
+                    13. ONBOARDING CHECKLIST (JUNIOR DEV)
+================================================================================
+
+DAY 1: ENVIRONMENT & OVERVIEW
+-----------------------------
+□ Clone/download the project
+□ Run `yarn install`
+□ Run `yarn prisma generate`
+□ Copy .env file (ask senior dev for credentials)
+□ Run `yarn dev` and verify app starts
+□ Login with test account (admin@logitrack.com / admin123)
+□ Click through all dashboard pages to understand the UI
+□ Read this documentation (Sections 1-4)
+
+DAY 2: DATABASE & API
+---------------------
+□ Run `yarn prisma studio` and explore the database
+□ Read prisma/schema.prisma to understand all models
+□ Read lib/types.ts to understand TypeScript types
+□ Test API endpoints using browser Network tab:
+  - GET /api/products
+  - GET /api/orders
+  - GET /api/shipments
+□ Read this documentation (Sections 5-6)
+
+DAY 3: BUSINESS LOGIC
+---------------------
+□ Read lib/auth.ts - understand authentication
+□ Read app/api/orders/route.ts - understand order creation
+□ Read app/api/orders/[id]/status/route.ts - understand status lifecycle
+□ Try creating an order through the UI
+□ Try changing order status through the UI
+□ Read this documentation (Sections 7-8)
+
+DAY 4: INTEGRATIONS
+-------------------
+□ Read lib/shopee-client.ts - understand Shopee integration
+□ Read lib/tracx-client.ts - understand shipment tracking
+□ (If credentials available) Try connecting a Shopee shop
+□ (If credentials available) Try syncing a shipment
+□ Read this documentation (Section 9)
+
+DAY 5: HANDS-ON PRACTICE
+------------------------
+□ Small safe tasks to try:
+  - Add a new product through the UI
+  - Add inventory batches to a product
+  - Create a manual order
+  - Understand how low stock alerts work
+  - Understand how expiry tracking works
+□ Read a dashboard page component (e.g., app/dashboard/orders/page.tsx)
+□ Ask questions about anything unclear!
+
+FILES TO READ FIRST:
+--------------------
+1. prisma/schema.prisma - Database schema
+2. lib/types.ts - TypeScript types
+3. lib/auth.ts - Authentication config
+4. app/api/orders/route.ts - Example API route
+5. app/dashboard/orders/page.tsx - Example page component
+
+FLOWS TO UNDERSTAND FIRST:
+--------------------------
+1. Login flow: login page → NextAuth → session cookie
+2. Order creation: UI form → POST /api/orders → database
+3. Order status change: dropdown → PUT /api/orders/[id]/status → validation
+4. Inventory tracking: products → batches → stock calculation
+
+SAFE FIRST TASKS:
+-----------------
+1. Add comments to code you find confusing
+2. Fix typos in UI text
+3. Improve error messages
+4. Add loading states where missing
+5. Write tests for utility functions
+
+QUESTIONS TO ASK YOUR SENIOR:
+-----------------------------
+- Where is the production environment?
+- How do we deploy changes?
+- Who has Shopee/TracxLogis credentials?
+- What's the process for code review?
+- What features are planned next?
+
+================================================================================
+                              END OF DOCUMENTATION
+================================================================================
+
+This documentation was generated for LogiTrack v1.0.
+For questions or updates, contact the development team.
+
+Last updated: February 2026

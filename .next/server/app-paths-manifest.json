@@ -1,0 +1,9 @@
+{
+  "/api/auth/[...nextauth]/route": "app/api/auth/[...nextauth]/route.js",
+  "/login/page": "app/login/page.js",
+  "/signup/page": "app/signup/page.js",
+  "/api/shopee/test/route": "app/api/shopee/test/route.js",
+  "/dashboard/page": "app/dashboard/page.js",
+  "/dashboard/inventory/page": "app/dashboard/inventory/page.js",
+  "/dashboard/data-sync/page": "app/dashboard/data-sync/page.js"
+}
