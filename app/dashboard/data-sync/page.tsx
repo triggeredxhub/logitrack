@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useCallback } from 'react';
-import { useSearchParams } from 'next/navigation';
-import { DashboardHeader } from '@/components/dashboard-header';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
+import { DashboardHeader } from "@/components/dashboard-header";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -13,7 +13,7 @@ import {
   DialogTitle,
   DialogFooter,
   DialogDescription,
-} from '@/components/ui/dialog';
+} from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -21,9 +21,15 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   RefreshCw,
   Plus,
@@ -36,8 +42,8 @@ import {
   ExternalLink,
   Clock,
   History,
-} from 'lucide-react';
-import { toast } from 'sonner';
+} from "lucide-react";
+import { toast } from "sonner";
 
 interface ShopeeConfig {
   id: string;
@@ -72,29 +78,31 @@ export default function DataSyncPage() {
   // Add config modal
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [addForm, setAddForm] = useState({
-    shopId: '',
-    partnerId: '',
-    partnerKey: '',
-    shopName: '',
+    shopId: "",
+    partnerId: "",
+    partnerKey: "",
+    shopName: "",
   });
   const [submitting, setSubmitting] = useState(false);
 
   // History modal
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
-  const [selectedConfig, setSelectedConfig] = useState<ShopeeConfig | null>(null);
+  const [selectedConfig, setSelectedConfig] = useState<ShopeeConfig | null>(
+    null,
+  );
   const [syncHistory, setSyncHistory] = useState<SyncLog[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
   const fetchConfigs = useCallback(async () => {
     try {
-      const res = await fetch('/api/shopee');
+      const res = await fetch("/api/shopee");
       const data = await res.json();
       if (data.success) {
         setConfigs(data.data);
       }
     } catch (error) {
-      console.error('Error fetching configs:', error);
-      toast.error('Failed to fetch Shopee configurations');
+      console.error("Error fetching configs:", error);
+      toast.error("Failed to fetch Shopee configurations");
     }
   }, []);
 
@@ -109,66 +117,115 @@ export default function DataSyncPage() {
 
   // Handle URL params for OAuth callback
   useEffect(() => {
-    const success = searchParams.get('success');
-    const error = searchParams.get('error');
+    const success = searchParams.get("success");
+    const error = searchParams.get("error");
 
-    if (success === 'authorized') {
-      toast.success('Successfully connected to Shopee!');
+    if (success === "authorized") {
+      toast.success("Successfully connected to Shopee!");
       fetchConfigs();
     } else if (error) {
-      const message = searchParams.get('message') || error;
+      const message = searchParams.get("message") || error;
       toast.error(`Shopee authorization failed: ${message}`);
     }
   }, [searchParams, fetchConfigs]);
 
+  // const handleAddConfig = async () => {
+  //   if (!addForm.shopId || !addForm.partnerId || !addForm.partnerKey) {
+  //     toast.error('Please fill in all required fields');
+  //     return;
+  //   }
+
+  //   setSubmitting(true);
+  //   try {
+  //     // First, test the credentials before saving
+  //     // const testRes = await fetch('/api/shopee/test', {
+  //     //   method: 'POST',
+  //     //   headers: { 'Content-Type': 'application/json' },
+  //     //   body: JSON.stringify({
+  //     //     partnerId: addForm.partnerId,
+  //     //     partnerKey: addForm.partnerKey,
+  //     //   }),
+  //     // });
+
+  //     // const testData = await testRes.json();
+  //     // if (!testData.success) {
+  //     //   toast.error(testData.error || 'Invalid credentials. Please check your Partner ID and Partner Key.');
+  //     //   setSubmitting(false);
+  //     //   return;
+  //     // }
+
+  //     // Credentials valid, now create the config
+  //     const res = await fetch('/api/shopee', {
+  //       method: 'POST',
+  //       headers: { 'Content-Type': 'application/json' },
+  //       body: JSON.stringify(addForm),
+  //     });
+
+  //     const data = await res.json();
+  //     if (data.success) {
+  //       toast.success('Configuration created! Opening Shopee for authorization...');
+  //       setAddModalOpen(false);
+  //       setAddForm({ shopId: '', partnerId: '', partnerKey: '', shopName: '' });
+  //       await fetchConfigs();
+  //       // Open Shopee auth URL in new tab so user doesn't lose context
+  //       if (data.authUrl) {
+  //         window.open(data.authUrl, '_blank');
+  //       }
+  //     } else {
+  //       toast.error(data.error || 'Failed to create configuration');
+  //     }
+  //   } catch (error) {
+  //     console.error('Error creating config:', error);
+  //     toast.error('Failed to create configuration');
+  //   } finally {
+  //     setSubmitting(false);
+  //   }
+  // };
+
   const handleAddConfig = async () => {
     if (!addForm.shopId || !addForm.partnerId || !addForm.partnerKey) {
-      toast.error('Please fill in all required fields');
+      toast.error("Please fill in all required fields");
       return;
     }
 
     setSubmitting(true);
     try {
-      // First, test the credentials before saving
-      const testRes = await fetch('/api/shopee/test', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          partnerId: addForm.partnerId,
-          partnerKey: addForm.partnerKey,
-        }),
-      });
-
-      const testData = await testRes.json();
-      if (!testData.success) {
-        toast.error(testData.error || 'Invalid credentials. Please check your Partner ID and Partner Key.');
-        setSubmitting(false);
-        return;
-      }
-
-      // Credentials valid, now create the config
-      const res = await fetch('/api/shopee', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      // 1️⃣ Create Shopee config (NO OAuth here)
+      const res = await fetch("/api/shopee", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(addForm),
       });
 
       const data = await res.json();
-      if (data.success) {
-        toast.success('Configuration created! Opening Shopee for authorization...');
-        setAddModalOpen(false);
-        setAddForm({ shopId: '', partnerId: '', partnerKey: '', shopName: '' });
-        await fetchConfigs();
-        // Open Shopee auth URL in new tab so user doesn't lose context
-        if (data.authUrl) {
-          window.open(data.authUrl, '_blank');
-        }
-      } else {
-        toast.error(data.error || 'Failed to create configuration');
+      if (!data.success) {
+        toast.error(data.error || "Failed to create configuration");
+        return;
       }
+
+      // 2️⃣ Request OAuth URL using config ID
+      const authRes = await fetch(`/api/shopee/${data.data.id}`, {
+        method: "POST",
+      });
+
+      const authData = await authRes.json();
+      if (!authData.success || !authData.authUrl) {
+        toast.error(authData.error || "Failed to start Shopee authorization");
+        return;
+      }
+
+      // 3️⃣ UI cleanup + redirect
+      toast.success(
+        "Configuration created! Opening Shopee for authorization...",
+      );
+      setAddModalOpen(false);
+      setAddForm({ shopId: "", partnerId: "", partnerKey: "", shopName: "" });
+      await fetchConfigs();
+
+      window.open(authData.authUrl, "_blank");
     } catch (error) {
-      console.error('Error creating config:', error);
-      toast.error('Failed to create configuration');
+      console.error("Error creating config:", error);
+      toast.error("Failed to create configuration");
     } finally {
       setSubmitting(false);
     }
@@ -176,32 +233,32 @@ export default function DataSyncPage() {
 
   const handleReauthorize = async (config: ShopeeConfig) => {
     try {
-      const res = await fetch(`/api/shopee/${config.id}`, { method: 'POST' });
+      const res = await fetch(`/api/shopee/${config.id}`, { method: "POST" });
       const data = await res.json();
       if (data.success && data.authUrl) {
         // Open in new tab so user doesn't lose context
-        window.open(data.authUrl, '_blank');
-        toast.info('Authorization page opened in new tab');
+        window.open(data.authUrl, "_blank");
+        toast.info("Authorization page opened in new tab");
       } else {
-        toast.error(data.error || 'Failed to generate authorization URL');
+        toast.error(data.error || "Failed to generate authorization URL");
       }
     } catch (error) {
-      console.error('Error reauthorizing:', error);
-      toast.error('Failed to reauthorize');
+      console.error("Error reauthorizing:", error);
+      toast.error("Failed to reauthorize");
     }
   };
 
   const handleSync = async (config: ShopeeConfig) => {
     if (!config.isTokenValid) {
-      toast.error('Please authorize with Shopee first');
+      toast.error("Please authorize with Shopee first");
       return;
     }
 
     setSyncing(config.id);
     try {
-      const res = await fetch('/api/shopee/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/shopee/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ configId: config.id, daysBack: 7 }),
       });
 
@@ -210,33 +267,33 @@ export default function DataSyncPage() {
         toast.success(data.message);
         fetchConfigs();
       } else {
-        toast.error(data.error || 'Sync failed');
+        toast.error(data.error || "Sync failed");
       }
     } catch (error) {
-      console.error('Error syncing:', error);
-      toast.error('Failed to sync orders');
+      console.error("Error syncing:", error);
+      toast.error("Failed to sync orders");
     } finally {
       setSyncing(null);
     }
   };
 
   const handleDelete = async (config: ShopeeConfig) => {
-    if (!confirm('Are you sure you want to delete this configuration?')) {
+    if (!confirm("Are you sure you want to delete this configuration?")) {
       return;
     }
 
     try {
-      const res = await fetch(`/api/shopee/${config.id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/shopee/${config.id}`, { method: "DELETE" });
       const data = await res.json();
       if (data.success) {
-        toast.success('Configuration deleted');
+        toast.success("Configuration deleted");
         fetchConfigs();
       } else {
-        toast.error(data.error || 'Failed to delete');
+        toast.error(data.error || "Failed to delete");
       }
     } catch (error) {
-      console.error('Error deleting:', error);
-      toast.error('Failed to delete configuration');
+      console.error("Error deleting:", error);
+      toast.error("Failed to delete configuration");
     }
   };
 
@@ -252,8 +309,8 @@ export default function DataSyncPage() {
         setSyncHistory(data.data);
       }
     } catch (error) {
-      console.error('Error fetching history:', error);
-      toast.error('Failed to fetch sync history');
+      console.error("Error fetching history:", error);
+      toast.error("Failed to fetch sync history");
     } finally {
       setHistoryLoading(false);
     }
@@ -261,11 +318,11 @@ export default function DataSyncPage() {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'completed':
+      case "completed":
         return <Badge className="bg-green-100 text-green-800">Completed</Badge>;
-      case 'started':
+      case "started":
         return <Badge className="bg-blue-100 text-blue-800">In Progress</Badge>;
-      case 'failed':
+      case "failed":
         return <Badge className="bg-red-100 text-red-800">Failed</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
@@ -284,19 +341,43 @@ export default function DataSyncPage() {
               Shopee Integration
             </CardTitle>
             <CardDescription>
-              Connect your Shopee shop to automatically import orders. Orders are imported read-only - 
-              inventory is NOT automatically deducted.
+              Connect your Shopee shop to automatically import orders. Orders
+              are imported read-only - inventory is NOT automatically deducted.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="rounded-lg bg-blue-50 border border-blue-200 p-4 text-sm">
-              <h4 className="font-semibold text-blue-800 mb-2">📋 Before Connecting</h4>
+              <h4 className="font-semibold text-blue-800 mb-2">
+                📋 Before Connecting
+              </h4>
               <ol className="list-decimal list-inside space-y-1 text-blue-700">
-                <li>Go to <a href="https://open.shopee.com" target="_blank" rel="noopener noreferrer" className="underline">Shopee Open Platform</a> → Your App</li>
-                <li>Copy your <strong>Partner ID</strong> (App ID) and <strong>Partner Key</strong></li>
-                <li>Get your <strong>Shop ID</strong> from Shopee Seller Center → Settings</li>
-                <li>Add this app&apos;s domain to <strong>Redirect URL Domain</strong> in Shopee</li>
-                <li>If IP Whitelist is enabled, add the deployment server IP</li>
+                <li>
+                  Go to{" "}
+                  <a
+                    href="https://open.shopee.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline"
+                  >
+                    Shopee Open Platform
+                  </a>{" "}
+                  → Your App
+                </li>
+                <li>
+                  Copy your <strong>Partner ID</strong> (App ID) and{" "}
+                  <strong>Partner Key</strong>
+                </li>
+                <li>
+                  Get your <strong>Shop ID</strong> from Shopee Seller Center →
+                  Settings
+                </li>
+                <li>
+                  Add this app&apos;s domain to{" "}
+                  <strong>Redirect URL Domain</strong> in Shopee
+                </li>
+                <li>
+                  If IP Whitelist is enabled, add the deployment server IP
+                </li>
               </ol>
             </div>
           </CardContent>
@@ -321,7 +402,9 @@ export default function DataSyncPage() {
             <div className="flex h-32 flex-col items-center justify-center text-gray-500">
               <Store className="h-8 w-8 mb-2" />
               <p>No Shopee shops connected yet.</p>
-              <p className="text-sm">Click &quot;Connect Shop&quot; to get started.</p>
+              <p className="text-sm">
+                Click &quot;Connect Shop&quot; to get started.
+              </p>
             </div>
           ) : (
             <Table>
@@ -340,7 +423,9 @@ export default function DataSyncPage() {
                     <TableCell className="font-medium">
                       {config.shopName || `Shop ${config.shopId}`}
                     </TableCell>
-                    <TableCell className="font-mono text-sm">{config.shopId}</TableCell>
+                    <TableCell className="font-mono text-sm">
+                      {config.shopId}
+                    </TableCell>
                     <TableCell>
                       {config.isTokenValid ? (
                         <Badge className="bg-green-100 text-green-800">
@@ -361,7 +446,7 @@ export default function DataSyncPage() {
                           {new Date(config.lastSyncAt).toLocaleString()}
                         </span>
                       ) : (
-                        'Never'
+                        "Never"
                       )}
                     </TableCell>
                     <TableCell className="text-right">
@@ -419,11 +504,14 @@ export default function DataSyncPage() {
           <div className="flex items-start gap-3">
             <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5" />
             <div>
-              <h4 className="font-medium text-amber-800">Important: Read-Only Import</h4>
+              <h4 className="font-medium text-amber-800">
+                Important: Read-Only Import
+              </h4>
               <p className="text-sm text-amber-700 mt-1">
-                Shopee orders are imported read-only. Inventory is NOT automatically deducted 
-                when orders are synced. This is intentional to prevent accidental stock discrepancies. 
-                Use the Orders page to manually link inventory batches if needed.
+                Shopee orders are imported read-only. Inventory is NOT
+                automatically deducted when orders are synced. This is
+                intentional to prevent accidental stock discrepancies. Use the
+                Orders page to manually link inventory batches if needed.
               </p>
             </div>
           </div>
@@ -446,9 +534,13 @@ export default function DataSyncPage() {
                 id="partnerId"
                 placeholder="e.g., 2007123"
                 value={addForm.partnerId}
-                onChange={(e) => setAddForm({ ...addForm, partnerId: e.target.value })}
+                onChange={(e) =>
+                  setAddForm({ ...addForm, partnerId: e.target.value })
+                }
               />
-              <p className="text-xs text-gray-500">Found in Shopee Open Platform → App List → Your App</p>
+              <p className="text-xs text-gray-500">
+                Found in Shopee Open Platform → App List → Your App
+              </p>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="partnerKey">Partner Key *</Label>
@@ -457,9 +549,13 @@ export default function DataSyncPage() {
                 type="password"
                 placeholder="Your secret partner key"
                 value={addForm.partnerKey}
-                onChange={(e) => setAddForm({ ...addForm, partnerKey: e.target.value })}
+                onChange={(e) =>
+                  setAddForm({ ...addForm, partnerKey: e.target.value })
+                }
               />
-              <p className="text-xs text-gray-500">Secret key from Shopee Open Platform (keep confidential)</p>
+              <p className="text-xs text-gray-500">
+                Secret key from Shopee Open Platform (keep confidential)
+              </p>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="shopId">Shop ID *</Label>
@@ -467,9 +563,13 @@ export default function DataSyncPage() {
                 id="shopId"
                 placeholder="e.g., 123456789"
                 value={addForm.shopId}
-                onChange={(e) => setAddForm({ ...addForm, shopId: e.target.value })}
+                onChange={(e) =>
+                  setAddForm({ ...addForm, shopId: e.target.value })
+                }
               />
-              <p className="text-xs text-gray-500">Your shop&apos;s numeric ID from Shopee Seller Center</p>
+              <p className="text-xs text-gray-500">
+                Your shop&apos;s numeric ID from Shopee Seller Center
+              </p>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="shopName">Shop Name (optional)</Label>
@@ -477,9 +577,13 @@ export default function DataSyncPage() {
                 id="shopName"
                 placeholder="e.g., Nano SG"
                 value={addForm.shopName}
-                onChange={(e) => setAddForm({ ...addForm, shopName: e.target.value })}
+                onChange={(e) =>
+                  setAddForm({ ...addForm, shopName: e.target.value })
+                }
               />
-              <p className="text-xs text-gray-500">Display name for this connection</p>
+              <p className="text-xs text-gray-500">
+                Display name for this connection
+              </p>
             </div>
           </div>
           <DialogFooter>
@@ -499,7 +603,8 @@ export default function DataSyncPage() {
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>
-              Sync History - {selectedConfig?.shopName || `Shop ${selectedConfig?.shopId}`}
+              Sync History -{" "}
+              {selectedConfig?.shopName || `Shop ${selectedConfig?.shopId}`}
             </DialogTitle>
           </DialogHeader>
           <div className="max-h-96 overflow-y-auto">
@@ -533,7 +638,7 @@ export default function DataSyncPage() {
                       <TableCell>{log.ordersImported}</TableCell>
                       <TableCell>{log.ordersSkipped}</TableCell>
                       <TableCell className="text-sm text-red-600 max-w-[200px] truncate">
-                        {log.errorMessage || '-'}
+                        {log.errorMessage || "-"}
                       </TableCell>
                     </TableRow>
                   ))}

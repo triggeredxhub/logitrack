@@ -95,13 +95,13 @@ export async function POST(request: NextRequest) {
 
     // Generate OAuth URL for authorization
     const redirectUrl = `${process.env.NEXTAUTH_URL}/api/shopee/callback`;
-    const authUrl = ShopeeClient.getAuthUrl(partnerId.toString(), partnerKey, redirectUrl);
+   // const authUrl = ShopeeClient.getAuthUrl(partnerId.toString(), partnerKey, redirectUrl);
 
     return NextResponse.json(
       {
         success: true,
         data: config,
-        authUrl,
+        // authUrl,
         message: 'Configuration created. Please authorize with Shopee.',
       },
       { status: 201 }

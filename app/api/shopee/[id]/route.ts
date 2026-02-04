@@ -1,20 +1,20 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/db';
-import { ShopeeClient } from '@/lib/shopee-client';
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/db";
+import { ShopeeClient } from "@/lib/shopee-client";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
 // GET /api/shopee/[id] - Get Shopee config details
-export async function GET(
-  request: NextRequest,
-  context: RouteContext
-) {
+export async function GET(request: NextRequest, context: RouteContext) {
   try {
     const session = await getServerSession(authOptions);
     if (!session) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 },
+      );
     }
 
     const { id } = await context.params;
@@ -23,7 +23,7 @@ export async function GET(
       where: { id },
       include: {
         syncLogs: {
-          orderBy: { startedAt: 'desc' },
+          orderBy: { startedAt: "desc" },
           take: 10,
         },
       },
@@ -31,8 +31,8 @@ export async function GET(
 
     if (!config) {
       return NextResponse.json(
-        { success: false, error: 'Configuration not found' },
-        { status: 404 }
+        { success: false, error: "Configuration not found" },
+        { status: 404 },
       );
     }
 
@@ -44,7 +44,9 @@ export async function GET(
         shopName: config.shopName,
         partnerId: config.partnerId,
         isActive: config.isActive,
-        isTokenValid: config.tokenExpiresAt ? config.tokenExpiresAt > new Date() : false,
+        isTokenValid: config.tokenExpiresAt
+          ? config.tokenExpiresAt > new Date()
+          : false,
         tokenExpiresAt: config.tokenExpiresAt,
         lastSyncAt: config.lastSyncAt,
         createdAt: config.createdAt,
@@ -53,23 +55,23 @@ export async function GET(
       },
     });
   } catch (error) {
-    console.error('Error fetching Shopee config:', error);
+    console.error("Error fetching Shopee config:", error);
     return NextResponse.json(
-      { success: false, error: 'Failed to fetch configuration' },
-      { status: 500 }
+      { success: false, error: "Failed to fetch configuration" },
+      { status: 500 },
     );
   }
 }
 
 // PUT /api/shopee/[id] - Update Shopee config
-export async function PUT(
-  request: NextRequest,
-  context: RouteContext
-) {
+export async function PUT(request: NextRequest, context: RouteContext) {
   try {
     const session = await getServerSession(authOptions);
     if (!session) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 },
+      );
     }
 
     const { id } = await context.params;
@@ -82,8 +84,8 @@ export async function PUT(
 
     if (!config) {
       return NextResponse.json(
-        { success: false, error: 'Configuration not found' },
-        { status: 404 }
+        { success: false, error: "Configuration not found" },
+        { status: 404 },
       );
     }
 
@@ -109,26 +111,26 @@ export async function PUT(
     return NextResponse.json({
       success: true,
       data: updated,
-      message: 'Configuration updated',
+      message: "Configuration updated",
     });
   } catch (error) {
-    console.error('Error updating Shopee config:', error);
+    console.error("Error updating Shopee config:", error);
     return NextResponse.json(
-      { success: false, error: 'Failed to update configuration' },
-      { status: 500 }
+      { success: false, error: "Failed to update configuration" },
+      { status: 500 },
     );
   }
 }
 
 // DELETE /api/shopee/[id] - Delete Shopee config
-export async function DELETE(
-  request: NextRequest,
-  context: RouteContext
-) {
+export async function DELETE(request: NextRequest, context: RouteContext) {
   try {
     const session = await getServerSession(authOptions);
     if (!session) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 },
+      );
     }
 
     const { id } = await context.params;
@@ -139,8 +141,8 @@ export async function DELETE(
 
     if (!config) {
       return NextResponse.json(
-        { success: false, error: 'Configuration not found' },
-        { status: 404 }
+        { success: false, error: "Configuration not found" },
+        { status: 404 },
       );
     }
 
@@ -150,26 +152,26 @@ export async function DELETE(
 
     return NextResponse.json({
       success: true,
-      message: 'Configuration deleted',
+      message: "Configuration deleted",
     });
   } catch (error) {
-    console.error('Error deleting Shopee config:', error);
+    console.error("Error deleting Shopee config:", error);
     return NextResponse.json(
-      { success: false, error: 'Failed to delete configuration' },
-      { status: 500 }
+      { success: false, error: "Failed to delete configuration" },
+      { status: 500 },
     );
   }
 }
 
 // POST /api/shopee/[id] - Get auth URL for re-authorization
-export async function POST(
-  request: NextRequest,
-  context: RouteContext
-) {
+export async function POST(request: NextRequest, context: RouteContext) {
   try {
     const session = await getServerSession(authOptions);
     if (!session) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 },
+      );
     }
 
     const { id } = await context.params;
@@ -180,25 +182,30 @@ export async function POST(
 
     if (!config) {
       return NextResponse.json(
-        { success: false, error: 'Configuration not found' },
-        { status: 404 }
+        { success: false, error: "Configuration not found" },
+        { status: 404 },
       );
     }
 
     // Generate OAuth URL
     const redirectUrl = `${process.env.NEXTAUTH_URL}/api/shopee/callback`;
-    const authUrl = ShopeeClient.getAuthUrl(config.partnerId, config.partnerKey, redirectUrl);
+    const authUrl = ShopeeClient.getAuthUrl(
+      config.partnerId,
+      config.partnerKey,
+      redirectUrl,
+      config.shopId,
+    );
 
     return NextResponse.json({
       success: true,
       authUrl,
-      message: 'Please authorize with Shopee',
+      message: "Please authorize with Shopee",
     });
   } catch (error) {
-    console.error('Error generating auth URL:', error);
+    console.error("Error generating auth URL:", error);
     return NextResponse.json(
-      { success: false, error: 'Failed to generate authorization URL' },
-      { status: 500 }
+      { success: false, error: "Failed to generate authorization URL" },
+      { status: 500 },
     );
   }
 }

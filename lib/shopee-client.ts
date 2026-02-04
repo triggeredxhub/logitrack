@@ -1,9 +1,13 @@
-import crypto from 'crypto';
-import { prisma } from './db';
+import crypto from "crypto";
+import { prisma } from "./db";
 
 // Sandbox: https://partner.test-stable.shopeemobile.com
 // Production: https://partner.shopeemobile.com
-const SHOPEE_API_BASE = process.env.SHOPEE_API_BASE || 'https://partner.test-stable.shopeemobile.com';
+const SHOPEE_API_BASE =
+  process.env.SHOPEE_API_BASE || "https://partner.test-stable.shopeemobile.com";
+
+const SHOPEE_AUTH_BASE =
+  process.env.SHOPEE_AUTH_BASE || "https://open.sandbox.test-stable.shopee.com";
 
 // Shopee API response types
 interface ShopeeApiResponse<T> {
@@ -83,7 +87,7 @@ class ShopeeClient {
     partnerKey: string,
     shopId: string,
     accessToken: string | null,
-    configId: string
+    configId: string,
   ) {
     this.partnerId = partnerId;
     this.partnerKey = partnerKey;
@@ -95,7 +99,12 @@ class ShopeeClient {
   /**
    * Generate HMAC-SHA256 signature for Shopee API requests
    */
-  private generateSignature(path: string, timestamp: number, accessToken?: string, shopId?: string): string {
+  private generateSignature(
+    path: string,
+    timestamp: number,
+    accessToken?: string,
+    shopId?: string,
+  ): string {
     const partnerIdNum = parseInt(this.partnerId, 10);
     let baseString = `${partnerIdNum}${path}${timestamp}`;
     if (accessToken) {
@@ -105,9 +114,9 @@ class ShopeeClient {
       baseString += parseInt(shopId, 10);
     }
     return crypto
-      .createHmac('sha256', this.partnerKey)
+      .createHmac("sha256", this.partnerKey)
       .update(baseString)
-      .digest('hex');
+      .digest("hex");
   }
 
   /**
@@ -115,9 +124,9 @@ class ShopeeClient {
    */
   private async request<T>(
     path: string,
-    method: 'GET' | 'POST' = 'GET',
+    method: "GET" | "POST" = "GET",
     body?: Record<string, unknown>,
-    useShopAuth = true
+    useShopAuth = true,
   ): Promise<ShopeeApiResponse<T>> {
     const timestamp = Math.floor(Date.now() / 1000);
     const partnerIdNum = parseInt(this.partnerId, 10);
@@ -125,7 +134,7 @@ class ShopeeClient {
       path,
       timestamp,
       useShopAuth ? this.accessToken || undefined : undefined,
-      useShopAuth ? this.shopId : undefined
+      useShopAuth ? this.shopId : undefined,
     );
 
     let url = `${SHOPEE_API_BASE}${path}?partner_id=${partnerIdNum}&timestamp=${timestamp}&sign=${sign}`;
@@ -140,11 +149,11 @@ class ShopeeClient {
     const options: RequestInit = {
       method,
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
     };
 
-    if (body && method === 'POST') {
+    if (body && method === "POST") {
       options.body = JSON.stringify(body);
     }
 
@@ -155,18 +164,64 @@ class ShopeeClient {
   /**
    * Get OAuth authorization URL
    */
-  static getAuthUrl(partnerId: string, partnerKey: string, redirectUrl: string): string {
-    const path = '/api/v2/shop/auth_partner';
-    const timestamp = Math.floor(Date.now() / 1000);
-    const partnerIdNum = parseInt(partnerId, 10);
-    const baseString = `${partnerIdNum}${path}${timestamp}`;
-    const sign = crypto
-      .createHmac('sha256', partnerKey)
-      .update(baseString)
-      .digest('hex');
+  // static getAuthUrl(
+  //   partnerId: string,
+  //   partnerKey: string,
+  //   redirectUrl: string,
+  //   shopId: string,
+  // ): string {
+  //   const path = "/api/v2/shop/auth_partner";
+  //   const timestamp = Math.floor(Date.now() / 1000);
+  //   const partnerIdNum = parseInt(partnerId, 10);
+  //   const baseString = `${partnerIdNum}${path}${timestamp}`;
+  //   const sign = crypto
+  //     .createHmac("sha256", partnerKey)
+  //     .update(baseString)
+  //     .digest("hex");
 
-    // Build URL manually to avoid URLSearchParams encoding issues
-    return `${SHOPEE_API_BASE}${path}?partner_id=${partnerIdNum}&timestamp=${timestamp}&sign=${sign}&redirect=${encodeURIComponent(redirectUrl)}`;
+  //   // Build URL manually to avoid URLSearchParams encoding issues
+  //   return (
+  //     `${SHOPEE_API_BASE}${path}` +
+  //     `?partner_id=${partnerIdNum}` +
+  //     `&timestamp=${timestamp}` +
+  //     `&sign=${sign}` +
+  //     `&redirect=${encodeURIComponent(redirectUrl)}` +
+  //     `&shop_id=${shopId}`
+  //   );
+  // }
+  static getAuthUrl(
+    partnerId: string,
+    partnerKey: string,
+    redirectUrl: string,
+    shopId: string,
+  ): string {
+    // IMPORTANT: signature path ≠ browser path
+    const signPath = "/api/v2/shop/auth_partner";
+    const authPath = "/auth";
+
+    const timestamp = Math.floor(Date.now() / 1000);
+    const partnerIdNum = Number(partnerId);
+
+    const baseString = `${partnerIdNum}${signPath}${timestamp}`;
+    const sign = crypto
+      .createHmac("sha256", partnerKey)
+      .update(baseString)
+      .digest("hex");
+
+    const AUTH_BASE =
+      process.env.SHOPEE_AUTH_BASE ||
+      "https://open.sandbox.test-stable.shopee.com";
+
+    return (
+      `${AUTH_BASE}${authPath}` +
+      `?partner_id=${partnerIdNum}` +
+      `&timestamp=${timestamp}` +
+      `&sign=${sign}` +
+      `&redirect_uri=${encodeURIComponent(redirectUrl)}` +
+      `&shop_id=${shopId}` +
+      `&auth_type=seller` +
+      `&response_type=code`
+    );
   }
 
   /**
@@ -176,22 +231,22 @@ class ShopeeClient {
     partnerId: string,
     partnerKey: string,
     code: string,
-    shopId: string
+    shopId: string,
   ): Promise<ShopeeApiResponse<ShopeeTokenResponse>> {
-    const path = '/api/v2/auth/token/get';
+    const path = "/api/v2/auth/token/get";
     const timestamp = Math.floor(Date.now() / 1000);
     const partnerIdNum = parseInt(partnerId, 10);
     const baseString = `${partnerIdNum}${path}${timestamp}`;
     const sign = crypto
-      .createHmac('sha256', partnerKey)
+      .createHmac("sha256", partnerKey)
       .update(baseString)
-      .digest('hex');
+      .digest("hex");
 
     const url = `${SHOPEE_API_BASE}${path}?partner_id=${partnerIdNum}&timestamp=${timestamp}&sign=${sign}`;
 
     const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         code,
         shop_id: parseInt(shopId, 10),
@@ -206,20 +261,20 @@ class ShopeeClient {
    * Refresh access token using refresh token
    */
   async refreshAccessToken(refreshToken: string): Promise<boolean> {
-    const path = '/api/v2/auth/access_token/get';
+    const path = "/api/v2/auth/access_token/get";
     const timestamp = Math.floor(Date.now() / 1000);
     const partnerIdNum = parseInt(this.partnerId, 10);
     const baseString = `${partnerIdNum}${path}${timestamp}`;
     const sign = crypto
-      .createHmac('sha256', this.partnerKey)
+      .createHmac("sha256", this.partnerKey)
       .update(baseString)
-      .digest('hex');
+      .digest("hex");
 
     const url = `${SHOPEE_API_BASE}${path}?partner_id=${partnerIdNum}&timestamp=${timestamp}&sign=${sign}`;
 
     const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         refresh_token: refreshToken,
         shop_id: parseInt(this.shopId, 10),
@@ -230,7 +285,7 @@ class ShopeeClient {
     const data: ShopeeApiResponse<ShopeeTokenResponse> = await response.json();
 
     if (data.error || !data.response) {
-      console.error('Token refresh failed:', data.message || data.error);
+      console.error("Token refresh failed:", data.message || data.error);
       return false;
     }
 
@@ -266,7 +321,7 @@ class ShopeeClient {
     const bufferTime = 30 * 60 * 1000; // 30 minutes
 
     if (!tokenExpiresAt || tokenExpiresAt.getTime() < Date.now() + bufferTime) {
-      console.log('Token expired or expiring soon, refreshing...');
+      console.log("Token expired or expiring soon, refreshing...");
       return this.refreshAccessToken(config.refreshToken);
     }
 
@@ -278,17 +333,17 @@ class ShopeeClient {
    * Get list of orders from Shopee
    */
   async getOrderList(
-    timeRangeField: 'create_time' | 'update_time' = 'create_time',
+    timeRangeField: "create_time" | "update_time" = "create_time",
     timeFrom: number,
     timeTo: number,
     pageSize = 50,
-    cursor?: string
+    cursor?: string,
   ): Promise<ShopeeApiResponse<ShopeeOrderListResponse>> {
     if (!(await this.ensureValidToken())) {
       return {
-        error: 'error_auth',
-        message: 'Failed to authenticate with Shopee',
-        request_id: '',
+        error: "error_auth",
+        message: "Failed to authenticate with Shopee",
+        request_id: "",
       };
     }
 
@@ -297,8 +352,8 @@ class ShopeeClient {
       time_from: timeFrom,
       time_to: timeTo,
       page_size: pageSize,
-      order_status: 'ALL',
-      response_optional_fields: 'order_status',
+      order_status: "ALL",
+      response_optional_fields: "order_status",
     };
 
     if (cursor) {
@@ -306,60 +361,64 @@ class ShopeeClient {
     }
 
     return this.request<ShopeeOrderListResponse>(
-      '/api/v2/order/get_order_list',
-      'POST',
-      body
+      "/api/v2/order/get_order_list",
+      "POST",
+      body,
     );
   }
 
   /**
    * Get order details for specific order SNs
    */
-  async getOrderDetails(orderSnList: string[]): Promise<ShopeeApiResponse<ShopeeOrderDetailResponse>> {
+  async getOrderDetails(
+    orderSnList: string[],
+  ): Promise<ShopeeApiResponse<ShopeeOrderDetailResponse>> {
     if (!(await this.ensureValidToken())) {
       return {
-        error: 'error_auth',
-        message: 'Failed to authenticate with Shopee',
-        request_id: '',
+        error: "error_auth",
+        message: "Failed to authenticate with Shopee",
+        request_id: "",
       };
     }
 
     const body = {
       order_sn_list: orderSnList,
       response_optional_fields: [
-        'buyer_user_id',
-        'buyer_username',
-        'recipient_address',
-        'total_amount',
-        'currency',
-        'item_list',
-        'shipping_carrier',
-        'tracking_no',
-      ].join(','),
+        "buyer_user_id",
+        "buyer_username",
+        "recipient_address",
+        "total_amount",
+        "currency",
+        "item_list",
+        "shipping_carrier",
+        "tracking_no",
+      ].join(","),
     };
 
     return this.request<ShopeeOrderDetailResponse>(
-      '/api/v2/order/get_order_detail',
-      'POST',
-      body
+      "/api/v2/order/get_order_detail",
+      "POST",
+      body,
     );
   }
 
   /**
    * Get shop info
    */
-  async getShopInfo(): Promise<ShopeeApiResponse<{ shop_name: string; status: string }>> {
+  async getShopInfo(): Promise<
+    ShopeeApiResponse<{ shop_name: string; status: string }>
+  > {
     if (!(await this.ensureValidToken())) {
       return {
-        error: 'error_auth',
-        message: 'Failed to authenticate with Shopee',
-        request_id: '',
+        error: "error_auth",
+        message: "Failed to authenticate with Shopee",
+        request_id: "",
       };
     }
 
     return this.request<{ shop_name: string; status: string }>(
-      '/api/v2/shop/get_shop_info',
-      'GET'
+      "/api/v2/shop/get_shop_info",
+      "GET",
     );
   }
 }
@@ -367,7 +426,9 @@ class ShopeeClient {
 /**
  * Create a ShopeeClient instance from database config
  */
-export async function createShopeeClient(configId?: string): Promise<ShopeeClient | null> {
+export async function createShopeeClient(
+  configId?: string,
+): Promise<ShopeeClient | null> {
   let config;
 
   if (configId) {
@@ -390,26 +451,44 @@ export async function createShopeeClient(configId?: string): Promise<ShopeeClien
     config.partnerKey,
     config.shopId,
     config.accessToken,
-    config.id
+    config.id,
   );
 }
 
 /**
  * Map Shopee order status to internal order status
  */
-export function mapShopeeStatus(shopeeStatus: string): 'PENDING' | 'CONFIRMED' | 'PROCESSING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED' | 'REFUNDED' {
-  const statusMap: Record<string, 'PENDING' | 'CONFIRMED' | 'PROCESSING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED' | 'REFUNDED'> = {
-    'UNPAID': 'PENDING',
-    'READY_TO_SHIP': 'CONFIRMED',
-    'PROCESSED': 'PROCESSING',
-    'SHIPPED': 'SHIPPED',
-    'COMPLETED': 'DELIVERED',
-    'CANCELLED': 'CANCELLED',
-    'IN_CANCEL': 'CANCELLED',
-    'TO_RETURN': 'REFUNDED',
+export function mapShopeeStatus(
+  shopeeStatus: string,
+):
+  | "PENDING"
+  | "CONFIRMED"
+  | "PROCESSING"
+  | "SHIPPED"
+  | "DELIVERED"
+  | "CANCELLED"
+  | "REFUNDED" {
+  const statusMap: Record<
+    string,
+    | "PENDING"
+    | "CONFIRMED"
+    | "PROCESSING"
+    | "SHIPPED"
+    | "DELIVERED"
+    | "CANCELLED"
+    | "REFUNDED"
+  > = {
+    UNPAID: "PENDING",
+    READY_TO_SHIP: "CONFIRMED",
+    PROCESSED: "PROCESSING",
+    SHIPPED: "SHIPPED",
+    COMPLETED: "DELIVERED",
+    CANCELLED: "CANCELLED",
+    IN_CANCEL: "CANCELLED",
+    TO_RETURN: "REFUNDED",
   };
 
-  return statusMap[shopeeStatus] || 'PENDING';
+  return statusMap[shopeeStatus] || "PENDING";
 }
 
 export { ShopeeClient };
