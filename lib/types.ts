@@ -10,6 +10,7 @@ export type Product = {
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
+  tracxSkuNo: string | null;
 };
 
 export type ProductWithStock = Product & {
@@ -25,6 +26,7 @@ export type CreateProductInput = {
   category?: string;
   reorderLevel?: number;
   sellingPrice?: number;
+  
 };
 
 export type UpdateProductInput = Partial<CreateProductInput> & {
@@ -60,6 +62,7 @@ export type CreateInventoryBatchInput = {
   location?: string;
   costPrice?: number;
   notes?: string;
+  
 };
 
 export type UpdateInventoryBatchInput = Partial<Omit<CreateInventoryBatchInput, 'productId'>>;

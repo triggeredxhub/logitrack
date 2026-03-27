@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { CreateProductInput, ProductWithStock } from '@/lib/types';
+import { createTracxClient } from "@/lib/tracx-client"; // adjust path if needed
 
 // GET /api/products - List all products with stock info
 export async function GET(request: NextRequest) {
@@ -18,6 +19,7 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search') || '';
     const category = searchParams.get('category') || '';
     const activeOnly = searchParams.get('activeOnly') === 'true';
+    
 
     const where: Record<string, unknown> = {};
     
@@ -85,6 +87,7 @@ export async function GET(request: NextRequest) {
 }
 
 // POST /api/products - Create a new product
+
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -94,7 +97,6 @@ export async function POST(request: NextRequest) {
 
     const body: CreateProductInput = await request.json();
 
-    // Validate required fields
     if (!body.name || !body.sku) {
       return NextResponse.json(
         { success: false, error: 'Name and SKU are required' },
@@ -102,7 +104,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if SKU already exists
     const existingProduct = await prisma.product.findUnique({
       where: { sku: body.sku },
     });
@@ -114,6 +115,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // ✅ 1. Create product locally
     const product = await prisma.product.create({
       data: {
         name: body.name,
@@ -125,17 +127,50 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // ✅ 2. Call TracX CreateInventory
+    const tracxClient = await createTracxClient();
+
+    let tracxSkuNo: string | null = null;
+
+    if (tracxClient) {
+      try {
+        const result = await tracxClient.createInventory({
+          name: product.name,
+          sku: product.sku,
+          price: product.sellingPrice ? Number(product.sellingPrice) : 0,
+        });
+
+        tracxSkuNo = result.sku_no;
+
+        // ✅ 3. Save SKU to DB
+        await prisma.product.update({
+          where: { id: product.id },
+          data: {
+            tracxSkuNo: tracxSkuNo,
+          },
+        });
+
+      } catch (tracxError) {
+        console.error("TracX CreateInventory failed:", tracxError);
+        // ⚠️ do NOT fail the whole request
+      }
+    }
+
     return NextResponse.json(
       {
         success: true,
         data: {
           ...product,
-          sellingPrice: product.sellingPrice ? parseFloat(product.sellingPrice.toString()) : null,
+          tracxSkuNo,
+          sellingPrice: product.sellingPrice
+            ? parseFloat(product.sellingPrice.toString())
+            : null,
         },
         message: 'Product created successfully',
       },
       { status: 201 }
     );
+
   } catch (error) {
     console.error('Error creating product:', error);
     return NextResponse.json(

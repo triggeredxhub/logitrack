@@ -37,7 +37,7 @@ model Product {
   isActive      Boolean   @default(true)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
-
+  tracxSkuNo String? @map("tracx_sku_no")
   batches       InventoryBatch[]
 
   @@map("products")
