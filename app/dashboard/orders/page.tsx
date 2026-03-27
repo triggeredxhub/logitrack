@@ -1,24 +1,24 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useCallback } from 'react';
-import { DashboardHeader } from '@/components/dashboard-header';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { useState, useEffect, useCallback } from "react";
+import { DashboardHeader } from "@/components/dashboard-header";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from '@/components/ui/dialog';
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -26,14 +26,14 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+} from "@/components/ui/dropdown-menu";
 import {
   ShoppingCart,
   Plus,
@@ -45,7 +45,7 @@ import {
   ArrowRight,
   Package,
   X,
-} from 'lucide-react';
+} from "lucide-react";
 import {
   ORDER_STATUSES,
   ORDER_CHANNELS,
@@ -54,8 +54,8 @@ import {
   OrderChannel,
   OrderWithItems,
   ProductWithStock,
-} from '@/lib/types';
-import { toast } from 'sonner';
+} from "@/lib/types";
+import { toast } from "sonner";
 
 interface InventoryBatchOption {
   id: string;
@@ -77,13 +77,13 @@ interface OrderItemForm {
 }
 
 const STATUS_COLORS: Record<OrderStatus, string> = {
-  PENDING: 'bg-yellow-100 text-yellow-800',
-  CONFIRMED: 'bg-blue-100 text-blue-800',
-  PROCESSING: 'bg-purple-100 text-purple-800',
-  SHIPPED: 'bg-indigo-100 text-indigo-800',
-  DELIVERED: 'bg-green-100 text-green-800',
-  CANCELLED: 'bg-red-100 text-red-800',
-  REFUNDED: 'bg-gray-100 text-gray-800',
+  PENDING: "bg-yellow-100 text-yellow-800",
+  CONFIRMED: "bg-blue-100 text-blue-800",
+  PROCESSING: "bg-purple-100 text-purple-800",
+  SHIPPED: "bg-indigo-100 text-indigo-800",
+  DELIVERED: "bg-green-100 text-green-800",
+  CANCELLED: "bg-red-100 text-red-800",
+  REFUNDED: "bg-gray-100 text-gray-800",
 };
 
 export default function OrdersPage() {
@@ -91,32 +91,37 @@ export default function OrdersPage() {
   const [products, setProducts] = useState<ProductWithStock[]>([]);
   const [batches, setBatches] = useState<InventoryBatchOption[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [channelFilter, setChannelFilter] = useState('');
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [channelFilter, setChannelFilter] = useState("");
 
   // Create order modal state
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [orderForm, setOrderForm] = useState({
-    channel: 'manual' as OrderChannel,
-    customerName: '',
-    customerEmail: '',
-    customerPhone: '',
-    shippingAddress: '',
+    channel: "manual" as OrderChannel,
+    customerName: "",
+    customerEmail: "",
+    customerPhone: "",
+    shippingAddress: "",
+    postalCode: "",
+    countryCode: "PH",
+    addressLine2: "",
   });
   const [orderItems, setOrderItems] = useState<OrderItemForm[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
   // View order modal state
   const [viewModalOpen, setViewModalOpen] = useState(false);
-  const [selectedOrder, setSelectedOrder] = useState<OrderWithItems | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<OrderWithItems | null>(
+    null,
+  );
 
   const fetchOrders = useCallback(async () => {
     try {
       const params = new URLSearchParams();
-      if (search) params.set('search', search);
-      if (statusFilter) params.set('status', statusFilter);
-      if (channelFilter) params.set('channel', channelFilter);
+      if (search) params.set("search", search);
+      if (statusFilter) params.set("status", statusFilter);
+      if (channelFilter) params.set("channel", channelFilter);
 
       const res = await fetch(`/api/orders?${params}`);
       const data = await res.json();
@@ -124,32 +129,37 @@ export default function OrdersPage() {
         setOrders(data.data);
       }
     } catch (error) {
-      console.error('Error fetching orders:', error);
-      toast.error('Failed to fetch orders');
+      console.error("Error fetching orders:", error);
+      toast.error("Failed to fetch orders");
     }
   }, [search, statusFilter, channelFilter]);
 
   const fetchProducts = async () => {
     try {
-      const res = await fetch('/api/products?activeOnly=true');
+      const res = await fetch("/api/products?activeOnly=true");
       const data = await res.json();
       if (data.success) {
         setProducts(data.data);
       }
     } catch (error) {
-      console.error('Error fetching products:', error);
+      console.error("Error fetching products:", error);
     }
   };
 
   const fetchBatches = async () => {
     try {
-      const res = await fetch('/api/inventory');
+      const res = await fetch("/api/inventory");
       const data = await res.json();
       if (data.success) {
-        setBatches(data.data.filter((b: InventoryBatchOption) => b.quantity > 0 && !('isExpired' in b && b.isExpired as boolean)));
+        setBatches(
+          data.data.filter(
+            (b: InventoryBatchOption) =>
+              b.quantity > 0 && !("isExpired" in b && (b.isExpired as boolean)),
+          ),
+        );
       }
     } catch (error) {
-      console.error('Error fetching batches:', error);
+      console.error("Error fetching batches:", error);
     }
   };
 
@@ -164,28 +174,36 @@ export default function OrdersPage() {
 
   const openCreateModal = () => {
     setOrderForm({
-      channel: 'manual',
-      customerName: '',
-      customerEmail: '',
-      customerPhone: '',
-      shippingAddress: '',
+      channel: "manual",
+      customerName: "",
+      customerEmail: "",
+      customerPhone: "",
+      shippingAddress: "",
+      postalCode: "",
+      countryCode: "PH",
+      addressLine2: "",
     });
-    setOrderItems([{
-      productName: '',
-      sku: '',
-      quantity: '1',
-      unitPrice: '',
-    }]);
+    setOrderItems([
+      {
+        productName: "",
+        sku: "",
+        quantity: "1",
+        unitPrice: "",
+      },
+    ]);
     setCreateModalOpen(true);
   };
 
   const addOrderItem = () => {
-    setOrderItems([...orderItems, {
-      productName: '',
-      sku: '',
-      quantity: '1',
-      unitPrice: '',
-    }]);
+    setOrderItems([
+      ...orderItems,
+      {
+        productName: "",
+        sku: "",
+        quantity: "1",
+        unitPrice: "",
+      },
+    ]);
   };
 
   const removeOrderItem = (index: number) => {
@@ -194,17 +212,21 @@ export default function OrdersPage() {
     }
   };
 
-  const updateOrderItem = (index: number, field: keyof OrderItemForm, value: string) => {
+  const updateOrderItem = (
+    index: number,
+    field: keyof OrderItemForm,
+    value: string,
+  ) => {
     const updated = [...orderItems];
     updated[index] = { ...updated[index], [field]: value };
 
     // If selecting a batch, auto-fill product details
-    if (field === 'inventoryBatchId' && value) {
-      const batch = batches.find(b => b.id === value);
+    if (field === "inventoryBatchId" && value) {
+      const batch = batches.find((b) => b.id === value);
       if (batch) {
         updated[index].productName = batch.product.name;
         updated[index].sku = batch.product.sku;
-        updated[index].unitPrice = batch.product.sellingPrice?.toString() || '';
+        updated[index].unitPrice = batch.product.sellingPrice?.toString() || "";
       }
     }
 
@@ -214,8 +236,13 @@ export default function OrdersPage() {
   const handleCreateOrder = async () => {
     // Validate items
     for (const item of orderItems) {
-      if (!item.productName || !item.sku || !item.quantity || !item.unitPrice) {
-        toast.error('Please fill in all item fields');
+      if (
+        !orderForm.customerName ||
+        !orderForm.customerPhone ||
+        !orderForm.shippingAddress ||
+        !orderForm.postalCode
+      ) {
+        toast.error("Missing required shipping info");
         return;
       }
     }
@@ -228,7 +255,7 @@ export default function OrdersPage() {
         customerEmail: orderForm.customerEmail || undefined,
         customerPhone: orderForm.customerPhone || undefined,
         shippingAddress: orderForm.shippingAddress || undefined,
-        items: orderItems.map(item => ({
+        items: orderItems.map((item) => ({
           productName: item.productName,
           sku: item.sku,
           quantity: parseInt(item.quantity),
@@ -237,34 +264,37 @@ export default function OrdersPage() {
         })),
       };
 
-      const res = await fetch('/api/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
       const data = await res.json();
       if (data.success) {
-        toast.success('Order created successfully');
+        toast.success("Order created successfully");
         setCreateModalOpen(false);
         fetchOrders();
         fetchBatches(); // Refresh inventory
       } else {
-        toast.error(data.error || 'Failed to create order');
+        toast.error(data.error || "Failed to create order");
       }
     } catch (error) {
-      console.error('Error creating order:', error);
-      toast.error('Failed to create order');
+      console.error("Error creating order:", error);
+      toast.error("Failed to create order");
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleStatusChange = async (orderId: string, newStatus: OrderStatus) => {
+  const handleStatusChange = async (
+    orderId: string,
+    newStatus: OrderStatus,
+  ) => {
     try {
       const res = await fetch(`/api/orders/${orderId}/status`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
       });
 
@@ -276,32 +306,32 @@ export default function OrdersPage() {
           setSelectedOrder(data.data);
         }
       } else {
-        toast.error(data.error || 'Failed to update status');
+        toast.error(data.error || "Failed to update status");
       }
     } catch (error) {
-      console.error('Error updating status:', error);
-      toast.error('Failed to update status');
+      console.error("Error updating status:", error);
+      toast.error("Failed to update status");
     }
   };
 
   const handleDeleteOrder = async (orderId: string) => {
-    if (!confirm('Are you sure you want to delete this order?')) {
+    if (!confirm("Are you sure you want to delete this order?")) {
       return;
     }
 
     try {
-      const res = await fetch(`/api/orders/${orderId}`, { method: 'DELETE' });
+      const res = await fetch(`/api/orders/${orderId}`, { method: "DELETE" });
       const data = await res.json();
       if (data.success) {
-        toast.success('Order deleted');
+        toast.success("Order deleted");
         fetchOrders();
         fetchBatches();
       } else {
-        toast.error(data.error || 'Failed to delete order');
+        toast.error(data.error || "Failed to delete order");
       }
     } catch (error) {
-      console.error('Error deleting order:', error);
-      toast.error('Failed to delete order');
+      console.error("Error deleting order:", error);
+      toast.error("Failed to delete order");
     }
   };
 
@@ -314,8 +344,8 @@ export default function OrdersPage() {
         setViewModalOpen(true);
       }
     } catch (error) {
-      console.error('Error fetching order:', error);
-      toast.error('Failed to fetch order details');
+      console.error("Error fetching order:", error);
+      toast.error("Failed to fetch order details");
     }
   };
 
@@ -399,10 +429,16 @@ export default function OrdersPage() {
               <TableBody>
                 {orders.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="h-32 text-center text-gray-500">
+                    <TableCell
+                      colSpan={8}
+                      className="h-32 text-center text-gray-500"
+                    >
                       <div className="flex flex-col items-center gap-2">
                         <ShoppingCart className="h-8 w-8" />
-                        <p>No orders found. Create your first order to get started.</p>
+                        <p>
+                          No orders found. Create your first order to get
+                          started.
+                        </p>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -414,13 +450,16 @@ export default function OrdersPage() {
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline">
-                          {order.channel.charAt(0).toUpperCase() + order.channel.slice(1)}
+                          {order.channel.charAt(0).toUpperCase() +
+                            order.channel.slice(1)}
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        {order.customerName || '-'}
+                        {order.customerName || "-"}
                         {order.customerEmail && (
-                          <p className="text-xs text-gray-500">{order.customerEmail}</p>
+                          <p className="text-xs text-gray-500">
+                            {order.customerEmail}
+                          </p>
                         )}
                       </TableCell>
                       <TableCell>{order.items.length} item(s)</TableCell>
@@ -428,7 +467,9 @@ export default function OrdersPage() {
                         {order.currency} {order.totalAmount.toFixed(2)}
                       </TableCell>
                       <TableCell>
-                        <Badge className={STATUS_COLORS[order.status as OrderStatus]}>
+                        <Badge
+                          className={STATUS_COLORS[order.status as OrderStatus]}
+                        >
                           {order.status}
                         </Badge>
                       </TableCell>
@@ -443,20 +484,28 @@ export default function OrdersPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => viewOrder(order.id)}>
+                            <DropdownMenuItem
+                              onClick={() => viewOrder(order.id)}
+                            >
                               <Eye className="mr-2 h-4 w-4" />
                               View Details
                             </DropdownMenuItem>
-                            {ORDER_STATUS_TRANSITIONS[order.status as OrderStatus].map((nextStatus) => (
+                            {ORDER_STATUS_TRANSITIONS[
+                              order.status as OrderStatus
+                            ].map((nextStatus) => (
                               <DropdownMenuItem
                                 key={nextStatus}
-                                onClick={() => handleStatusChange(order.id, nextStatus)}
+                                onClick={() =>
+                                  handleStatusChange(order.id, nextStatus)
+                                }
                               >
                                 <ArrowRight className="mr-2 h-4 w-4" />
                                 Mark as {nextStatus}
                               </DropdownMenuItem>
                             ))}
-                            {['PENDING', 'CANCELLED'].includes(order.status) && (
+                            {["PENDING", "CANCELLED"].includes(
+                              order.status,
+                            ) && (
                               <DropdownMenuItem
                                 onClick={() => handleDeleteOrder(order.id)}
                                 className="text-red-600"
@@ -489,7 +538,9 @@ export default function OrdersPage() {
               <Label htmlFor="channel">Channel *</Label>
               <Select
                 value={orderForm.channel}
-                onValueChange={(value: OrderChannel) => setOrderForm({ ...orderForm, channel: value })}
+                onValueChange={(value: OrderChannel) =>
+                  setOrderForm({ ...orderForm, channel: value })
+                }
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -511,7 +562,9 @@ export default function OrdersPage() {
                 <Input
                   id="customerName"
                   value={orderForm.customerName}
-                  onChange={(e) => setOrderForm({ ...orderForm, customerName: e.target.value })}
+                  onChange={(e) =>
+                    setOrderForm({ ...orderForm, customerName: e.target.value })
+                  }
                 />
               </div>
               <div className="grid gap-2">
@@ -520,7 +573,12 @@ export default function OrdersPage() {
                   id="customerEmail"
                   type="email"
                   value={orderForm.customerEmail}
-                  onChange={(e) => setOrderForm({ ...orderForm, customerEmail: e.target.value })}
+                  onChange={(e) =>
+                    setOrderForm({
+                      ...orderForm,
+                      customerEmail: e.target.value,
+                    })
+                  }
                 />
               </div>
             </div>
@@ -530,7 +588,12 @@ export default function OrdersPage() {
                 <Input
                   id="customerPhone"
                   value={orderForm.customerPhone}
-                  onChange={(e) => setOrderForm({ ...orderForm, customerPhone: e.target.value })}
+                  onChange={(e) =>
+                    setOrderForm({
+                      ...orderForm,
+                      customerPhone: e.target.value,
+                    })
+                  }
                 />
               </div>
               <div className="grid gap-2">
@@ -538,7 +601,12 @@ export default function OrdersPage() {
                 <Input
                   id="shippingAddress"
                   value={orderForm.shippingAddress}
-                  onChange={(e) => setOrderForm({ ...orderForm, shippingAddress: e.target.value })}
+                  onChange={(e) =>
+                    setOrderForm({
+                      ...orderForm,
+                      shippingAddress: e.target.value,
+                    })
+                  }
                 />
               </div>
             </div>
@@ -547,7 +615,12 @@ export default function OrdersPage() {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <Label>Order Items *</Label>
-                <Button type="button" variant="outline" size="sm" onClick={addOrderItem}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={addOrderItem}
+                >
                   <Plus className="mr-1 h-3 w-3" />
                   Add Item
                 </Button>
@@ -555,7 +628,9 @@ export default function OrdersPage() {
               {orderItems.map((item, index) => (
                 <div key={index} className="rounded-lg border p-4 space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Item {index + 1}</span>
+                    <span className="text-sm font-medium">
+                      Item {index + 1}
+                    </span>
                     {orderItems.length > 1 && (
                       <Button
                         type="button"
@@ -570,8 +645,10 @@ export default function OrdersPage() {
                   <div className="grid gap-2">
                     <Label>From Inventory (optional)</Label>
                     <Select
-                      value={item.inventoryBatchId || ''}
-                      onValueChange={(value) => updateOrderItem(index, 'inventoryBatchId', value)}
+                      value={item.inventoryBatchId || ""}
+                      onValueChange={(value) =>
+                        updateOrderItem(index, "inventoryBatchId", value)
+                      }
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select batch or enter manually" />
@@ -580,7 +657,8 @@ export default function OrdersPage() {
                         <SelectItem value="manual">Enter manually</SelectItem>
                         {batches.map((batch) => (
                           <SelectItem key={batch.id} value={batch.id}>
-                            {batch.product.name} - {batch.batchNumber} (Qty: {batch.quantity})
+                            {batch.product.name} - {batch.batchNumber} (Qty:{" "}
+                            {batch.quantity})
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -591,7 +669,9 @@ export default function OrdersPage() {
                       <Label>Product Name *</Label>
                       <Input
                         value={item.productName}
-                        onChange={(e) => updateOrderItem(index, 'productName', e.target.value)}
+                        onChange={(e) =>
+                          updateOrderItem(index, "productName", e.target.value)
+                        }
                         placeholder="Product name"
                       />
                     </div>
@@ -599,7 +679,9 @@ export default function OrdersPage() {
                       <Label>SKU *</Label>
                       <Input
                         value={item.sku}
-                        onChange={(e) => updateOrderItem(index, 'sku', e.target.value)}
+                        onChange={(e) =>
+                          updateOrderItem(index, "sku", e.target.value)
+                        }
                         placeholder="SKU"
                       />
                     </div>
@@ -611,7 +693,9 @@ export default function OrdersPage() {
                         type="number"
                         min="1"
                         value={item.quantity}
-                        onChange={(e) => updateOrderItem(index, 'quantity', e.target.value)}
+                        onChange={(e) =>
+                          updateOrderItem(index, "quantity", e.target.value)
+                        }
                       />
                     </div>
                     <div className="grid gap-2">
@@ -620,7 +704,9 @@ export default function OrdersPage() {
                         type="number"
                         step="0.01"
                         value={item.unitPrice}
-                        onChange={(e) => updateOrderItem(index, 'unitPrice', e.target.value)}
+                        onChange={(e) =>
+                          updateOrderItem(index, "unitPrice", e.target.value)
+                        }
                         placeholder="0.00"
                       />
                     </div>
@@ -656,18 +742,25 @@ export default function OrdersPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm text-gray-500">Order Number</p>
-                  <p className="font-mono font-medium">{selectedOrder.orderNumber}</p>
+                  <p className="font-mono font-medium">
+                    {selectedOrder.orderNumber}
+                  </p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Status</p>
-                  <Badge className={STATUS_COLORS[selectedOrder.status as OrderStatus]}>
+                  <Badge
+                    className={
+                      STATUS_COLORS[selectedOrder.status as OrderStatus]
+                    }
+                  >
                     {selectedOrder.status}
                   </Badge>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Channel</p>
                   <Badge variant="outline">
-                    {selectedOrder.channel.charAt(0).toUpperCase() + selectedOrder.channel.slice(1)}
+                    {selectedOrder.channel.charAt(0).toUpperCase() +
+                      selectedOrder.channel.slice(1)}
                   </Badge>
                 </div>
                 <div>
@@ -682,19 +775,19 @@ export default function OrdersPage() {
                 <div className="rounded-lg border p-4 grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <p className="text-gray-500">Name</p>
-                    <p>{selectedOrder.customerName || '-'}</p>
+                    <p>{selectedOrder.customerName || "-"}</p>
                   </div>
                   <div>
                     <p className="text-gray-500">Email</p>
-                    <p>{selectedOrder.customerEmail || '-'}</p>
+                    <p>{selectedOrder.customerEmail || "-"}</p>
                   </div>
                   <div>
                     <p className="text-gray-500">Phone</p>
-                    <p>{selectedOrder.customerPhone || '-'}</p>
+                    <p>{selectedOrder.customerPhone || "-"}</p>
                   </div>
                   <div>
                     <p className="text-gray-500">Address</p>
-                    <p>{selectedOrder.shippingAddress || '-'}</p>
+                    <p>{selectedOrder.shippingAddress || "-"}</p>
                   </div>
                 </div>
               </div>
@@ -722,22 +815,31 @@ export default function OrdersPage() {
                               {item.productName}
                             </div>
                           </TableCell>
-                          <TableCell className="font-mono text-sm">{item.sku}</TableCell>
-                          <TableCell className="text-right">{item.quantity}</TableCell>
+                          <TableCell className="font-mono text-sm">
+                            {item.sku}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {item.quantity}
+                          </TableCell>
                           <TableCell className="text-right">
                             {selectedOrder.currency} {item.unitPrice.toFixed(2)}
                           </TableCell>
                           <TableCell className="text-right font-medium">
-                            {selectedOrder.currency} {item.totalPrice.toFixed(2)}
+                            {selectedOrder.currency}{" "}
+                            {item.totalPrice.toFixed(2)}
                           </TableCell>
                         </TableRow>
                       ))}
                       <TableRow>
-                        <TableCell colSpan={4} className="text-right font-semibold">
+                        <TableCell
+                          colSpan={4}
+                          className="text-right font-semibold"
+                        >
                           Total
                         </TableCell>
                         <TableCell className="text-right font-bold text-lg">
-                          {selectedOrder.currency} {selectedOrder.totalAmount.toFixed(2)}
+                          {selectedOrder.currency}{" "}
+                          {selectedOrder.totalAmount.toFixed(2)}
                         </TableCell>
                       </TableRow>
                     </TableBody>
@@ -746,15 +848,22 @@ export default function OrdersPage() {
               </div>
 
               {/* Status Actions */}
-              {ORDER_STATUS_TRANSITIONS[selectedOrder.status as OrderStatus].length > 0 && (
+              {ORDER_STATUS_TRANSITIONS[selectedOrder.status as OrderStatus]
+                .length > 0 && (
                 <div>
                   <h4 className="font-medium mb-2">Update Status</h4>
                   <div className="flex gap-2">
-                    {ORDER_STATUS_TRANSITIONS[selectedOrder.status as OrderStatus].map((nextStatus) => (
+                    {ORDER_STATUS_TRANSITIONS[
+                      selectedOrder.status as OrderStatus
+                    ].map((nextStatus) => (
                       <Button
                         key={nextStatus}
-                        variant={nextStatus === 'CANCELLED' ? 'destructive' : 'outline'}
-                        onClick={() => handleStatusChange(selectedOrder.id, nextStatus)}
+                        variant={
+                          nextStatus === "CANCELLED" ? "destructive" : "outline"
+                        }
+                        onClick={() =>
+                          handleStatusChange(selectedOrder.id, nextStatus)
+                        }
                       >
                         <ArrowRight className="mr-2 h-4 w-4" />
                         {nextStatus}
